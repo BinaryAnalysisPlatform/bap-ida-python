@@ -13,4 +13,4 @@ All of the requisite scripts can be installed via ``pip`` using::
 
 Now all that remains is to inform IDA about where the scripts are and how to access BAP. This process is simplified greatly using the plugin installer. The installer can be run using::
 
-    python -c 'from bap_ida_python.loader.installer import main; main()'
+    python -m bap_ida_python.loader.installer

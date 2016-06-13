@@ -5,7 +5,7 @@ import idaapi
 
 
 class bap_loader(idaapi.plugin_t):
-    """Loads plugins from the bap_ida_python/plugins directory."""
+    """Loads plugins from the bap/plugins directory."""
 
     flags = idaapi.PLUGIN_FIX
     comment = "BAP Plugin Loader"
@@ -14,21 +14,17 @@ class bap_loader(idaapi.plugin_t):
     wanted_hotkey = ""
 
     def init(self):
-        """
-        Read directory and load as many plugins as possible.
-
-        Also updates the BAP config ida_path to point to the current IDA.
-        """
+        """Read directory and load as many plugins as possible."""
         import os
-        import bap_ida_python.plugins
+        import bap.plugins
+        import bap.utils.run
         import idaapi
 
         idaapi.msg("BAP Loader activated\n")
 
-        from bap_ida_python.utils import bap
-        bap.config.set('ida_path', idaapi.idadir(''))
+        bap.utils.run.check_and_configure_bap_path()
 
-        plugin_path = os.path.dirname(bap_ida_python.plugins.__file__)
+        plugin_path = os.path.dirname(bap.plugins.__file__)
         idaapi.msg("Loading plugins from {}\n".format(plugin_path))
 
         for plugin in sorted(os.listdir(plugin_path)):

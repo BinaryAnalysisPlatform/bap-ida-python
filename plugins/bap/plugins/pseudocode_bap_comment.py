@@ -1,7 +1,7 @@
 """Hex-Rays Plugin to propagate comments to Pseudocode View."""
 
-from bap_ida_python.utils import abstract_ida_plugins
-from bap_ida_python.utils import bap_comment, sexpr
+from bap.utils import abstract_ida_plugins
+from bap.utils import bap_comment, sexpr
 
 
 class Pseudocode_BAP_Comment(abstract_ida_plugins.SimpleLine_Modifier_Hexrays):

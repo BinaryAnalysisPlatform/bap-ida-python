@@ -42,7 +42,7 @@ class BAP_BIR_Attr(idaapi.plugin_t):
         address at the location pointed to by the cursor.
         """
         import tempfile
-        from bap_ida_python.utils.bap import run_bap_with
+        from bap.utils.run import run_bap_with
 
         args = {
             'screen_ea': "0x{:X}".format(idc.ScreenEA()),
@@ -83,8 +83,8 @@ class BAP_BIR_Attr(idaapi.plugin_t):
     @classmethod
     def clear_bap_comments(cls):
         """Ask user for confirmation and then clear (BAP ..) comments."""
-        from bap_ida_python.utils.bap_comment import get_bap_comment
-        from bap_ida_python.utils.ida import all_valid_ea
+        from bap.utils.bap_comment import get_bap_comment
+        from bap.utils.ida import all_valid_ea
         from idaapi import ASKBTN_CANCEL, ASKBTN_YES
 
         if idaapi.askyn_c(ASKBTN_CANCEL,
@@ -109,7 +109,7 @@ class BAP_BIR_Attr(idaapi.plugin_t):
 
     def init(self):
         """Initialize Plugin."""
-        from bap_ida_python.utils.ida import add_hotkey
+        from bap.utils.ida import add_hotkey
         add_hotkey("Shift-S", self.run_bap)
         add_hotkey("Ctrl-Shift-S", self.clear_bap_comments)
         return idaapi.PLUGIN_KEEP

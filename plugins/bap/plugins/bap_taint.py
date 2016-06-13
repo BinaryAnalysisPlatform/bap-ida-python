@@ -41,7 +41,7 @@ class BAP_Taint(idaapi.plugin_t):
 
     def _taint_and_color(self, ptr_or_reg):
         import tempfile
-        from bap_ida_python.utils.bap import run_bap_with
+        from bap.utils.run import run_bap_with
 
         args = {
             'taint_location': idc.ScreenEA(),
@@ -96,7 +96,7 @@ class BAP_Taint(idaapi.plugin_t):
 
     def init(self):
         """Initialize Plugin."""
-        from bap_ida_python.utils.ida import add_hotkey
+        from bap.utils.ida import add_hotkey
         add_hotkey("Shift-A", self._taint_reg_and_color)
         add_hotkey("Ctrl-Shift-A", self._taint_ptr_and_color)
         return idaapi.PLUGIN_KEEP

@@ -16,7 +16,7 @@ bap_color = {
     'gray':    0xEAEAEA,
 }
 
-from bap_ida_python.utils import abstract_ida_plugins, ida
+from bap.utils import abstract_ida_plugins, ida
 
 
 class Pseudocode_BAP_Taint(abstract_ida_plugins.SimpleLine_Modifier_Hexrays):

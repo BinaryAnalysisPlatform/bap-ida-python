@@ -55,7 +55,7 @@ class BAP_View(idaapi.plugin_t):
 
     def init(self):
         """Initialize BAP view to load whenever hotkey is pressed."""
-        from bap_ida_python.utils import ida
+        from bap.utils import ida
         ida.add_hotkey('Ctrl-Alt-Shift-S', self.show)
         self.update('\n BAP has not been run yet.')
         return idaapi.PLUGIN_KEEP

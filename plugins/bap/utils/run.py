@@ -39,7 +39,7 @@ def check_and_configure_bap_path():
         return askyn_c(ASKBTN_CANCEL, msg) == ASKBTN_YES
 
     while True:
-        bap_path = idaapi.askstr(0, default_bap_path, 'Path to bap')
+        bap_path = idaapi.askfile_c(False, default_bap_path, 'Path to bap')
         if bap_path is None:
             if confirm('Are you sure you don\'t want to set path?'):
                 return

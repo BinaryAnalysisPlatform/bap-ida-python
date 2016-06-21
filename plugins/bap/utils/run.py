@@ -88,8 +88,7 @@ def run_bap_with(argument_string):
     }
 
     ida.dump_symbol_info(args['symbol_file_location'])
-
-    #TODO Dump header info
+    ida.dump_c_header(args['header_path'])
 
     idc.Exec(
         "\

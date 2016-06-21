@@ -40,10 +40,13 @@ class BAP_View(idaapi.plugin_t):
         """Display BAP View to the user."""
         v = cls._get_view()
         if v is not None:
+            import re
+            ansi_escape = re.compile(r'\x1b[^m]*m([^\x1b]*)\x1b[^m]*m')
+            recolorize = lambda s : ansi_escape.sub('\1\x22\\1\2\x22', s)
             v.ClearLines()
             with open(cls._get_store_path(), 'r') as f:
                 for line in f.read().split('\n'):
-                    v.AddLine(line)
+                    v.AddLine(recolorize(line))
             v.Refresh()  # Ensure latest information gets to the screen
             v.Show()  # Actually show it on the screen
 

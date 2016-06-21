@@ -83,10 +83,20 @@ def run_bap_with(argument_string):
         'input_file_path': idc.GetInputFilePath(),
         'symbol_file_location': tempfile.mkstemp(suffix='.sym',
                                                  prefix='ida-bap-')[1],
+        'header_path': tempfile.mkstemp(suffix='.h', prefix='ida-bap-')[1],
         'remaining_args': argument_string
     }
 
     ida.dump_symbol_info(args['symbol_file_location'])
+
+    #TODO Dump header info
+
+    idc.Exec(
+        "\
+        \"{bap_executable_path}\" \
+        --api-add=c:\"{header_path}\" \
+        ".format(**args)
+    )
 
     command = (
         "\
@@ -123,5 +133,18 @@ def run_bap_with(argument_string):
     if tf:
         idaapi.close_tform(tf, 0)
 
-    idc.Exec("rm -f \"{symbol_file_location}\" \
-             \"{bap_output_file}\"".format(**args))  # Cleanup
+    # Do a cleanup of all the temporary files generated/added
+    idc.Exec(
+        "\
+        \"{bap_executable_path}\" \
+        --api-remove=c:\"{header_path}\" \
+        ".format(**args)
+    )
+    idc.Exec(
+        "\
+        rm -f \
+            \"{symbol_file_location}\" \
+            \"{header_path}\" \
+            \"{bap_output_file}\" \
+        ".format(**args)
+    )

@@ -137,7 +137,7 @@ def run_bap_with(argument_string):
     idc.Exec(
         "\
         \"{bap_executable_path}\" \
-        --api-remove=c:\"{header_path}\" \
+        --api-remove=c:`basename \"{header_path}\"` \
         ".format(**args)
     )
     idc.Exec(

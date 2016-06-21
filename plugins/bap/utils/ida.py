@@ -99,6 +99,41 @@ def dump_symbol_info(output_filename):
                     GetFunctionAttr(f, FUNCATTR_END)))
 
 
+def dump_c_header(output_filename):
+    """Dump type information as a C header."""
+    def local_type_info():
+        class my_sink(idaapi.text_sink_t):
+            def __init__(self):
+                try:
+                    idaapi.text_sink_t.__init__(self)
+                except AttributeError:
+                    pass  # Older IDA versions keep the text_sink_t abstract
+                self.text = []
+
+            def _print(self, thing):
+                self.text.append(thing)
+                return 0
+
+        sink = my_sink()
+
+        idaapi.print_decls(sink, idaapi.cvar.idati, [],
+                           idaapi.PDF_INCL_DEPS | idaapi.PDF_DEF_FWD)
+        return sink.text
+
+    def function_sigs():
+        import idautils
+        f_types = []
+        for ea in idautils.Functions():
+            ft = idaapi.print_type(ea, True)
+            if ft is not None:
+                f_types.append(ft + ';')
+        return list(set(f_types))  # Set, since sometimes, IDA gives repeats
+
+    with open(output_filename, 'w+') as out:
+        for line in local_type_info() + function_sigs():
+            out.write(line + '\n')
+
+
 def add_hotkey(hotkey, func):
     """
     Assign hotkey to run func.

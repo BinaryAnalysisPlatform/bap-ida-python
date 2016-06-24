@@ -129,14 +129,28 @@ def dump_c_header(output_filename):
                 f_types.append(ft + ';')
         return list(set(f_types))  # Set, since sometimes, IDA gives repeats
 
-    import re
-    decl = re.compile(r'(struct|enum|union) ([^{}]*);')
-    add_typedef_to_decls = lambda s : decl.sub(r'\1 \2; typedef \1 \2 \2;', s)
+    def replacer(regex, replacement):
+        import re
+        r = re.compile(regex)
+        return lambda s : r.sub(replacement, s)
+
+    pp_decls = replacer(r'(struct|enum|union) ([^{}]*);',
+                         r'\1 \2; typedef \1 \2 \2;')
+    pp_unsigned = replacer(r'unsigned __int(8|16|32|64)',
+                           r'uint\1_t')
+    pp_signed = replacer(r'(signed )?__int(8|16|32|64)',
+                         r'int\2_t')
+
+    def preprocess(line):
+        line = pp_decls(line)
+        line = pp_unsigned(line)  # Must happen before signed
+        line = pp_signed(line)
+        return line
 
     with open(output_filename, 'w+') as out:
         print repr(local_type_info() + function_sigs())
         for line in local_type_info() + function_sigs():
-            out.write(add_typedef_to_decls(line) + '\n')
+            out.write(preprocess(line) + '\n')
 
 
 def add_hotkey(hotkey, func):

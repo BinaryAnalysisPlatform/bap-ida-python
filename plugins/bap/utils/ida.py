@@ -113,11 +113,13 @@ def dump_brancher_info(output_filename):
         return list(CodeRefsFrom(ea, True))
 
     with open(output_filename, 'w+') as out:
+        out.write('(\n')
         for ea in all_valid_ea():
             if is_branch_insn(ea):
                 out.write("(0x%x (%s))\n" % (
                     ea,
                     (' '.join(map(lambda d: '0x%x' % d, branch_list(ea))))))
+        out.write(')\n')
 
 
 def add_hotkey(hotkey, func):

@@ -48,6 +48,14 @@ Copy all of the files and directories from the `plugins` directory into `$IDADIR
 
 The first run of IDA after that will prompt you to provide the path to BAP (along with a default if IDA is able to automatically detect BAP). If you wish to edit the path to BAP manually later, you can edit the file `$IDADIR/cfg/bap.cfg`.
 
+#### Opam?
+
+It is usually much easier to install through opam if you have already followed all the installation steps in the [bap repository](https://github.com/BinaryAnalysisPlatform/bap). Just run:
+
+```
+opam install bap-ida-python
+```
+
 #### IDA Demo?
 
 You can also use parts of the functionality (i.e. most of everything except for the decompiler outputs, and batch processing from bap) with IDA Free/Demo. However, you would need to install IDAPython. See [here](docs/IDAPython_on_IDADemo.md) for what one of our users reported to work.

@@ -140,7 +140,7 @@ def dump_c_header(output_filename):
                            r'uint\1_t')
     pp_signed = replacer(r'(signed )?__int(8|16|32|64)',
                          r'int\2_t')
-    pp_annotations = replacer(r'__cdecl|__noreturn', '')
+    pp_annotations = replacer(r'__(cdecl|noreturn)', r'__attribute__((\1))')
     pp_wd = lambda s : (
                 replacer(r'_QWORD', r'int64_t') (
                     replacer(r'_DWORD', r'int32_t') (

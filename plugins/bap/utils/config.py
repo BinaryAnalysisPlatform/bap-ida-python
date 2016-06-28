@@ -51,6 +51,7 @@ def set(key, value, section='default'):
         elif line[0] == '.':  # Section
             current_section = line[1:]
         elif section != current_section:
+            new_config.append(line)
             continue
         elif line.split()[0] == key:
             line = '{}\t{}\t; Previously: {}'.format(key, value, line)

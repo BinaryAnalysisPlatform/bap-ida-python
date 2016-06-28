@@ -161,6 +161,29 @@ def dump_c_header(output_filename):
             out.write(line + '\n')
 
 
+def dump_brancher_info(output_filename):
+    """Dump information for BAP's brancher into output_filename."""
+    from idautils import CodeRefsFrom
+    import idc
+
+    idaapi.autoWait()
+
+    def is_branch_insn(ea):
+        return len(list(CodeRefsFrom(ea, False))) > 0
+
+    def branch_list(ea):
+        return list(CodeRefsFrom(ea, True))
+
+    with open(output_filename, 'w+') as out:
+        out.write('(\n')
+        for ea in all_valid_ea():
+            if is_branch_insn(ea):
+                out.write("(0x%x (%s))\n" % (
+                    ea,
+                    (' '.join(map(lambda d: '0x%x' % d, branch_list(ea))))))
+        out.write(')\n')
+
+
 def add_hotkey(hotkey, func):
     """
     Assign hotkey to run func.

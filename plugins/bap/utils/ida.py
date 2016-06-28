@@ -120,7 +120,7 @@ def dump_brancher_info(output_filename):
     def is_jump_insn(ea):  # Only unconditional branches
         return len(branch(ea)) == len(dest(ea)) == 1
 
-    def labelled(addrs, label):
+    def labeled(addrs, label):
         l = lambda d: '(0x%x %s)' % (d, label)
         return ' '.join(map(l, addrs))
 
@@ -130,12 +130,12 @@ def dump_brancher_info(output_filename):
             if is_jump_insn(ea):
                 out.write('(0x%x (%s))\n' % (
                     ea,
-                    labelled(dest(ea), 'Jump')))
+                    labeled(dest(ea), 'Jump')))
             elif is_branch_insn(ea):
                 out.write('(0x%x (%s %s))\n' % (
                     ea,
-                    labelled(branch(ea), 'Cond'),
-                    labelled(fall(ea), 'Fall')))
+                    labeled(branch(ea), 'Cond'),
+                    labeled(fall(ea), 'Fall')))
             else:
                 pass  # Normal instruction, uninteresting
         out.write(')\n')

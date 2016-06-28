@@ -1,59 +1,70 @@
 """Utilities that interact with BAP."""
 
 
-def check_and_configure_bap_path():
+def check_and_configure_bap():
     """
     Check if bap_executable_path is set in the config; ask user if necessary.
 
     Automagically also tries a bunch of strategies to find `bap` if it can,
     and uses this to populate the default path in the popup, to make the
     user's life easier. :)
+
+    Also, this specifically enables the BAP API option in the config if it is
+    unspecified.
     """
     from bap.utils import config
     import idaapi
 
-    if config.get('bap_executable_path') is not None:
-        return
-    default_bap_path = ''
-
-    from subprocess import check_output, CalledProcessError
-    import os
-    try:
-        default_bap_path = check_output(['which', 'bap']).strip()
-    except (OSError, CalledProcessError) as e:
-        # Cannot run 'which' command  OR
-        # 'which' could not find 'bap'
-        try:
-            default_bap_path = os.path.join(
-                check_output(['opam', 'config', 'var', 'bap:bin']).strip(),
-                'bap'
-            )
-        except OSError:
-            # Cannot run 'opam'
-            pass
-    if not default_bap_path.endswith('bap'):
+    def config_path():
+        if config.get('bap_executable_path') is not None:
+            return
         default_bap_path = ''
 
-    def confirm(msg):
-        from idaapi import askyn_c, ASKBTN_CANCEL, ASKBTN_YES
-        return askyn_c(ASKBTN_CANCEL, msg) == ASKBTN_YES
+        from subprocess import check_output, CalledProcessError
+        import os
+        try:
+            default_bap_path = check_output(['which', 'bap']).strip()
+        except (OSError, CalledProcessError) as e:
+            # Cannot run 'which' command  OR
+            # 'which' could not find 'bap'
+            try:
+                default_bap_path = os.path.join(
+                    check_output(['opam', 'config', 'var', 'bap:bin']).strip(),
+                    'bap'
+                )
+            except OSError:
+                # Cannot run 'opam'
+                pass
+        if not default_bap_path.endswith('bap'):
+            default_bap_path = ''
 
-    while True:
-        bap_path = idaapi.askfile_c(False, default_bap_path, 'Path to bap')
-        if bap_path is None:
-            if confirm('Are you sure you don\'t want to set path?'):
-                return
-            else:
-                continue
-        if not bap_path.endswith('bap'):
-            if not confirm("Path does not end with bap. Confirm?"):
-                continue
-        if not os.path.isfile(bap_path):
-            if not confirm("Path does not point to a file. Confirm?"):
-                continue
-        break
+        def confirm(msg):
+            from idaapi import askyn_c, ASKBTN_CANCEL, ASKBTN_YES
+            return askyn_c(ASKBTN_CANCEL, msg) == ASKBTN_YES
 
-    config.set('bap_executable_path', bap_path)
+        while True:
+            bap_path = idaapi.askfile_c(False, default_bap_path, 'Path to bap')
+            if bap_path is None:
+                if confirm('Are you sure you don\'t want to set path?'):
+                    return
+                else:
+                    continue
+            if not bap_path.endswith('bap'):
+                if not confirm("Path does not end with bap. Confirm?"):
+                    continue
+            if not os.path.isfile(bap_path):
+                if not confirm("Path does not point to a file. Confirm?"):
+                    continue
+            break
+
+        config.set('bap_executable_path', bap_path)
+
+    def config_bap_api():
+        if config.get('enabled', section='bap_api') is None:
+            config.set('enabled', '1', section='bap_api')
+
+    config_path()
+    config_bap_api()
 
 
 def run_bap_with(argument_string):
@@ -71,7 +82,7 @@ def run_bap_with(argument_string):
     import idc
     import tempfile
 
-    check_and_configure_bap_path()
+    check_and_configure_bap()
     bap_executable_path = config.get('bap_executable_path')
     if bap_executable_path is None:
         return  # The user REALLY doesn't want us to run it
@@ -83,10 +94,25 @@ def run_bap_with(argument_string):
         'input_file_path': idc.GetInputFilePath(),
         'symbol_file_location': tempfile.mkstemp(suffix='.sym',
                                                  prefix='ida-bap-')[1],
+        'header_path': tempfile.mkstemp(suffix='.h', prefix='ida-bap-')[1],
         'remaining_args': argument_string
     }
 
+    bap_api_enabled = (config.get('enabled',
+                                  default='0',
+                                  section='bap_api').lower() in
+                       ('1', 'true', 'yes'))
+
     ida.dump_symbol_info(args['symbol_file_location'])
+
+    if bap_api_enabled:
+        ida.dump_c_header(args['header_path'])
+        idc.Exec(
+            "\
+            \"{bap_executable_path}\" \
+            --api-add=c:\"{header_path}\" \
+            ".format(**args)
+        )
 
     command = (
         "\
@@ -123,5 +149,19 @@ def run_bap_with(argument_string):
     if tf:
         idaapi.close_tform(tf, 0)
 
-    idc.Exec("rm -f \"{symbol_file_location}\" \
-             \"{bap_output_file}\"".format(**args))  # Cleanup
+    # Do a cleanup of all the temporary files generated/added
+    if bap_api_enabled:
+        idc.Exec(
+            "\
+            \"{bap_executable_path}\" \
+            --api-remove=c:`basename \"{header_path}\"` \
+            ".format(**args)
+        )
+    idc.Exec(
+        "\
+        rm -f \
+            \"{symbol_file_location}\" \
+            \"{header_path}\" \
+            \"{bap_output_file}\" \
+        ".format(**args)
+    )

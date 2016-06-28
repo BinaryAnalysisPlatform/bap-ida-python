@@ -99,6 +99,68 @@ def dump_symbol_info(output_filename):
                     GetFunctionAttr(f, FUNCATTR_END)))
 
 
+def dump_c_header(output_filename):
+    """Dump type information as a C header."""
+    def local_type_info():
+        class my_sink(idaapi.text_sink_t):
+            def __init__(self):
+                try:
+                    idaapi.text_sink_t.__init__(self)
+                except AttributeError:
+                    pass  # Older IDA versions keep the text_sink_t abstract
+                self.text = []
+
+            def _print(self, thing):
+                self.text.append(thing)
+                return 0
+
+        sink = my_sink()
+
+        idaapi.print_decls(sink, idaapi.cvar.idati, [],
+                           idaapi.PDF_INCL_DEPS | idaapi.PDF_DEF_FWD)
+        return sink.text
+
+    def function_sigs():
+        import idautils
+        f_types = []
+        for ea in idautils.Functions():
+            ft = idaapi.print_type(ea, True)
+            if ft is not None:
+                f_types.append(ft + ';')
+        return list(set(f_types))  # Set, since sometimes, IDA gives repeats
+
+    def replacer(regex, replacement):
+        import re
+        r = re.compile(regex)
+        return lambda s: r.sub(replacement, s)
+
+    pp_decls = replacer(r'(struct|enum|union) ([^{} ]*);',
+                        r'\1 \2; typedef \1 \2 \2;')
+    pp_unsigned = replacer(r'unsigned __int(8|16|32|64)',
+                           r'uint\1_t')
+    pp_signed = replacer(r'(signed )?__int(8|16|32|64)',
+                         r'int\2_t')
+    pp_annotations = replacer(r'__(cdecl|noreturn)', r'__attribute__((\1))')
+    pp_wd = lambda s: (
+        replacer(r'_QWORD', r'int64_t')(
+            replacer(r'_DWORD', r'int32_t')(
+                replacer(r'_WORD', r'int16_t')(
+                    replacer(r'_BYTE', r'int8_t')(s)))))
+
+    def preprocess(line):
+        line = pp_decls(line)
+        line = pp_unsigned(line)  # Must happen before signed
+        line = pp_signed(line)
+        line = pp_annotations(line)
+        line = pp_wd(line)
+        return line
+
+    with open(output_filename, 'w+') as out:
+        for line in local_type_info() + function_sigs():
+            line = preprocess(line)
+            out.write(line + '\n')
+
+
 def dump_brancher_info(output_filename):
     """Dump information for BAP's brancher into output_filename."""
     from idautils import CodeRefsFrom

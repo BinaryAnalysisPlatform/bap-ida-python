@@ -22,7 +22,7 @@ class bap_loader(idaapi.plugin_t):
 
         idaapi.msg("BAP Loader activated\n")
 
-        bap.utils.run.check_and_configure_bap_path()
+        bap.utils.run.check_and_configure_bap()
 
         plugin_path = os.path.dirname(bap.plugins.__file__)
         idaapi.msg("Loading plugins from {}\n".format(plugin_path))

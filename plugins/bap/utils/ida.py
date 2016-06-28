@@ -106,10 +106,10 @@ def dump_brancher_info(output_filename):
     idaapi.autoWait()
 
     def dest(ea):
-        return list(CodeRefsFrom(ea, True))
+        return list(CodeRefsFrom(ea, flow=True))
 
     def branch(ea):
-        return list(CodeRefsFrom(ea, False))
+        return list(CodeRefsFrom(ea, flow=False))
 
     def fall(ea):
         return list(set(dest(ea)) - set(branch(ea)))

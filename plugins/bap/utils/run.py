@@ -98,15 +98,21 @@ def run_bap_with(argument_string):
         'remaining_args': argument_string
     }
 
-    ida.dump_symbol_info(args['symbol_file_location'])
-    ida.dump_c_header(args['header_path'])
+    bap_api_enabled = (config.get('enabled',
+                                  default='0',
+                                  section='bap_api').lower() in
+                       ('1', 'true', 'yes'))
 
-    idc.Exec(
-        "\
-        \"{bap_executable_path}\" \
-        --api-add=c:\"{header_path}\" \
-        ".format(**args)
-    )
+    ida.dump_symbol_info(args['symbol_file_location'])
+
+    if bap_api_enabled:
+        ida.dump_c_header(args['header_path'])
+        idc.Exec(
+            "\
+            \"{bap_executable_path}\" \
+            --api-add=c:\"{header_path}\" \
+            ".format(**args)
+        )
 
     command = (
         "\
@@ -144,12 +150,13 @@ def run_bap_with(argument_string):
         idaapi.close_tform(tf, 0)
 
     # Do a cleanup of all the temporary files generated/added
-    idc.Exec(
-        "\
-        \"{bap_executable_path}\" \
-        --api-remove=c:`basename \"{header_path}\"` \
-        ".format(**args)
-    )
+    if bap_api_enabled:
+        idc.Exec(
+            "\
+            \"{bap_executable_path}\" \
+            --api-remove=c:`basename \"{header_path}\"` \
+            ".format(**args)
+        )
     idc.Exec(
         "\
         rm -f \

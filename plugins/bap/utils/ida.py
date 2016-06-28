@@ -102,23 +102,42 @@ def dump_symbol_info(output_filename):
 def dump_brancher_info(output_filename):
     """Dump information for BAP's brancher into output_filename."""
     from idautils import CodeRefsFrom
-    import idc
 
     idaapi.autoWait()
 
-    def is_branch_insn(ea):
-        return len(list(CodeRefsFrom(ea, False))) > 0
+    def dest(ea):
+        return list(CodeRefsFrom(ea, flow=True))
 
-    def branch_list(ea):
-        return list(CodeRefsFrom(ea, True))
+    def branch(ea):
+        return list(CodeRefsFrom(ea, flow=False))
+
+    def fall(ea):
+        return list(set(dest(ea)) - set(branch(ea)))
+
+    def is_branch_insn(ea):  # Unconditional branches are also counted
+        return len(branch(ea)) > 0
+
+    def is_jump_insn(ea):  # Only unconditional branches
+        return len(branch(ea)) == len(dest(ea)) == 1
+
+    def labeled(addrs, label):
+        l = lambda d: '(0x%x %s)' % (d, label)
+        return ' '.join(map(l, addrs))
 
     with open(output_filename, 'w+') as out:
         out.write('(\n')
         for ea in all_valid_ea():
-            if is_branch_insn(ea):
-                out.write("(0x%x (%s))\n" % (
+            if is_jump_insn(ea):
+                out.write('(0x%x (%s))\n' % (
                     ea,
-                    (' '.join(map(lambda d: '0x%x' % d, branch_list(ea))))))
+                    labeled(dest(ea), 'Jump')))
+            elif is_branch_insn(ea):
+                out.write('(0x%x (%s %s))\n' % (
+                    ea,
+                    labeled(branch(ea), 'Cond'),
+                    labeled(fall(ea), 'Fall')))
+            else:
+                pass  # Normal instruction, uninteresting
         out.write(')\n')
 
 

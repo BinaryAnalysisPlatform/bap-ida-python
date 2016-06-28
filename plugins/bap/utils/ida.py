@@ -132,20 +132,20 @@ def dump_c_header(output_filename):
     def replacer(regex, replacement):
         import re
         r = re.compile(regex)
-        return lambda s : r.sub(replacement, s)
+        return lambda s: r.sub(replacement, s)
 
     pp_decls = replacer(r'(struct|enum|union) ([^{} ]*);',
-                         r'\1 \2; typedef \1 \2 \2;')
+                        r'\1 \2; typedef \1 \2 \2;')
     pp_unsigned = replacer(r'unsigned __int(8|16|32|64)',
                            r'uint\1_t')
     pp_signed = replacer(r'(signed )?__int(8|16|32|64)',
                          r'int\2_t')
     pp_annotations = replacer(r'__(cdecl|noreturn)', r'__attribute__((\1))')
-    pp_wd = lambda s : (
-                replacer(r'_QWORD', r'int64_t') (
-                    replacer(r'_DWORD', r'int32_t') (
-                        replacer(r'_WORD', r'int16_t') (
-                            replacer(r'_BYTE', r'int8_t') (s)))))
+    pp_wd = lambda s: (
+        replacer(r'_QWORD', r'int64_t')(
+            replacer(r'_DWORD', r'int32_t')(
+                replacer(r'_WORD', r'int16_t')(
+                    replacer(r'_BYTE', r'int8_t')(s)))))
 
     def preprocess(line):
         line = pp_decls(line)

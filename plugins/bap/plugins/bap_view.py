@@ -42,7 +42,7 @@ class BAP_View(idaapi.plugin_t):
         if v is not None:
             import re
             ansi_escape = re.compile(r'\x1b[^m]*m([^\x1b]*)\x1b[^m]*m')
-            recolorize = lambda s : ansi_escape.sub('\1\x22\\1\2\x22', s)
+            recolorize = lambda s: ansi_escape.sub('\1\x22\\1\2\x22', s)
             v.ClearLines()
             with open(cls._get_store_path(), 'r') as f:
                 for line in f.read().split('\n'):

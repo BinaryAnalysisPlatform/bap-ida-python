@@ -6,6 +6,7 @@ import idaapi
 cfg_dir = idaapi.idadir('cfg')
 cfg_path = os.path.join(cfg_dir, 'bap.cfg')
 
+
 def get(key, default=None, section='default'):
     """Get value from key:value in the config file."""
     from bap.utils import bap_comment
@@ -25,6 +26,7 @@ def get(key, default=None, section='default'):
             elif line.split()[0] == key:
                 return line.split()[1]
     return default
+
 
 def set(key, value, section='default'):
     """Set key:value in the config file."""

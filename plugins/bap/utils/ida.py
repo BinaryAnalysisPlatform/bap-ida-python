@@ -187,7 +187,6 @@ def dump_brancher_info(output_filename):
         return ' '.join(map(l, addrs))
 
     with open(output_filename, 'w+') as out:
-        out.write('(\n')
         for ea in all_valid_ea():
             if is_jump_insn(ea):
                 out.write('(0x%x (%s))\n' % (
@@ -200,7 +199,6 @@ def dump_brancher_info(output_filename):
                     labeled(fall(ea), 'Fall')))
             else:
                 pass  # Normal instruction, uninteresting
-        out.write(')\n')
 
 
 def add_hotkey(hotkey, func):

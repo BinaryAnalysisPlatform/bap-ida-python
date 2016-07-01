@@ -7,6 +7,10 @@ interoperatibility between BAP and IDA Pro. It also provides many useful feature
 Features
 --------
 
+### Function information augmentation
+
+By just hitting the `Shift+P` key, IDA will call BAP which will use its own analysis (and all the information sources that it knows of) to obtain all the locations where there are functions. This information is then propagated to IDA and used to create functions there automatically. This is especially useful in scenarios where there are a lot of indirect calls etc and BAP (using its different plugins) is able to detect functions in the code which IDA is unable to do so.
+
 ### Taint Propagation
 
 By choosing a taint source and hitting either `Ctrl+A` (for tainting register) or `Ctrl+Shift+A` (for tainting pointer), one can easily see how taint propagates through the code, in both disassembly and decompilation views.

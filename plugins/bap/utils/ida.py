@@ -167,38 +167,21 @@ def dump_brancher_info(output_filename):
 
     idaapi.autoWait()
 
-    def dest(ea):
-        return list(CodeRefsFrom(ea, flow=True))
+    def dest(ea, flow):  # flow denotes whether normal flow is also taken
+        return set(CodeRefsFrom(ea, flow))
 
-    def branch(ea):
-        return list(CodeRefsFrom(ea, flow=False))
-
-    def fall(ea):
-        return list(set(dest(ea)) - set(branch(ea)))
-
-    def is_branch_insn(ea):  # Unconditional branches are also counted
-        return len(branch(ea)) > 0
-
-    def is_jump_insn(ea):  # Only unconditional branches
-        return len(branch(ea)) == len(dest(ea)) == 1
-
-    def labeled(addrs, label):
-        l = lambda d: '(0x%x %s)' % (d, label)
-        return ' '.join(map(l, addrs))
+    def pp(l):
+        return ' '.join('0x%x' % e for e in l)
 
     with open(output_filename, 'w+') as out:
         for ea in all_valid_ea():
-            if is_jump_insn(ea):
-                out.write('(0x%x (%s))\n' % (
+            branch_dests = dest(ea, False)
+            if len(branch_dests) > 0:
+                out.write('(0x%x (%s) (%s))\n' % (
                     ea,
-                    labeled(dest(ea), 'Jump')))
-            elif is_branch_insn(ea):
-                out.write('(0x%x (%s %s))\n' % (
-                    ea,
-                    labeled(branch(ea), 'Cond'),
-                    labeled(fall(ea), 'Fall')))
-            else:
-                pass  # Normal instruction, uninteresting
+                    pp(dest(ea, True) - branch_dests),
+                    pp(branch_dests)
+                ))
 
 
 def add_hotkey(hotkey, func):

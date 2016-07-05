@@ -67,7 +67,7 @@ def check_and_configure_bap():
     config_bap_api()
 
 
-def run_bap_with(argument_string):
+def run_bap_with(argument_string, no_extras=False):
     """
     Run bap with the given argument_string.
 
@@ -75,6 +75,10 @@ def run_bap_with(argument_string):
     BAP with the argument_string
 
     Also updates the 'BAP View'
+
+    Note: If no_extras is set to True, then none of the extra work mentioned
+          above is done, and instead, bap is just run purely using
+                bap <executable> <argument_string>
     """
     from bap.plugins.bap_view import BAP_View
     from bap.utils import config
@@ -98,30 +102,42 @@ def run_bap_with(argument_string):
         'remaining_args': argument_string
     }
 
-    bap_api_enabled = (config.get('enabled',
-                                  default='0',
-                                  section='bap_api').lower() in
-                       ('1', 'true', 'yes'))
+    if no_extras:
 
-    ida.dump_symbol_info(args['symbol_file_location'])
-
-    if bap_api_enabled:
-        ida.dump_c_header(args['header_path'])
-        idc.Exec(
+        command = (
             "\
-            \"{bap_executable_path}\" \
-            --api-add=c:\"{header_path}\" \
+            \"{bap_executable_path}\" \"{input_file_path}\" \
+            {remaining_args} \
+            > \"{bap_output_file}\" 2>&1 \
             ".format(**args)
         )
 
-    command = (
-        "\
-        \"{bap_executable_path}\" \"{input_file_path}\" \
-        --read-symbols-from=\"{symbol_file_location}\" --symbolizer=file \
-        {remaining_args} \
-        -d > \"{bap_output_file}\" 2>&1 \
-        ".format(**args)
-    )
+    else:
+
+        bap_api_enabled = (config.get('enabled',
+                                      default='0',
+                                      section='bap_api').lower() in
+                           ('1', 'true', 'yes'))
+
+        ida.dump_symbol_info(args['symbol_file_location'])
+
+        if bap_api_enabled:
+            ida.dump_c_header(args['header_path'])
+            idc.Exec(
+                "\
+                \"{bap_executable_path}\" \
+                --api-add=c:\"{header_path}\" \
+                ".format(**args)
+            )
+
+        command = (
+            "\
+            \"{bap_executable_path}\" \"{input_file_path}\" \
+            --read-symbols-from=\"{symbol_file_location}\" --symbolizer=file \
+            {remaining_args} \
+            -d > \"{bap_output_file}\" 2>&1 \
+            ".format(**args)
+        )
 
     idc.Exec(command)
 
@@ -130,7 +146,7 @@ def run_bap_with(argument_string):
             "BAP execution string\n" +
             "--------------------\n" +
             "\n" +
-            '\n    --'.join(('bap'+argument_string).split('--')) +
+            '\n    --'.join(command.strip().split('--')) +
             "\n" +
             "\n" +
             "Output\n" +
@@ -150,13 +166,14 @@ def run_bap_with(argument_string):
         idaapi.close_tform(tf, 0)
 
     # Do a cleanup of all the temporary files generated/added
-    if bap_api_enabled:
-        idc.Exec(
-            "\
-            \"{bap_executable_path}\" \
-            --api-remove=c:`basename \"{header_path}\"` \
-            ".format(**args)
-        )
+    if not no_extras:
+        if bap_api_enabled:
+            idc.Exec(
+                "\
+                \"{bap_executable_path}\" \
+                --api-remove=c:`basename \"{header_path}\"` \
+                ".format(**args)
+            )
     idc.Exec(
         "\
         rm -f \

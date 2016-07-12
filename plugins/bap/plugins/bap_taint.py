@@ -58,16 +58,13 @@ class BAP_Taint(idaapi.plugin_t):
         run_bap_with(
             "\
             --taint-{ptr_or_reg}=0x{taint_location:X} \
-            --taint \
-            --propagate-taint \
             --map-terms-with='((true) (color gray))' \
             --map-terms-with='((is-visited) (color white))' \
             --map-terms-with='((has-taints) (color red))' \
             --map-terms-with='((taints) (color yellow))' \
-            --map-terms \
             --emit-ida-script-attr=color \
             --emit-ida-script-file={ida_script_location} \
-            --emit-ida-script \
+            --passes propagate-taint,map-terms,emit-ida-script \
             ".format(**args)
         )
 

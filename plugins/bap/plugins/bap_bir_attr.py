@@ -62,8 +62,17 @@ class BAP_BIR_Attr(idaapi.plugin_t):
                 args['args_from_user'] += " --emit-ida-script-attr=" + attr
             args['args_from_user'] += "\
             --emit-ida-script-file={ida_script_location} \
-            --emit-ida-script \
             ".format(**args)
+
+            def emit_ida_script(s):
+                import re
+                r = re.compile(r'(^| )(-p|--pa|--pas|--pass|--passes?) ([^ ]+)( |$)')
+                if len(r.findall(s)) > 0:
+                    return r.sub(r'\1\2 \3,emit-ida-script\4', s)
+                else:
+                    return s + " --pass emit-ida-script"
+
+            args['args_from_user'] = emit_ida_script(args['args_from_user'])
 
         idc.SetStatus(IDA_STATUS_WAITING)
         idaapi.refresh_idaview_anyway()

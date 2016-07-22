@@ -61,9 +61,14 @@ def add_to_comment_string(comm, key, value):
 
     BAP_dict, start_loc, end_loc = get_bap_comment(comm)
 
-    kv = ['BAP', [key, value]]
+    if value == '()':
+        kv = ['BAP', [key]]  # Make unit tags easier to read
+    else:
+        kv = ['BAP', [key, value]]
+
     for e in get_bap_list(BAP_dict):
-        if isinstance(e, list) and len(e) == 2:  # It is of the '(k v)' type
+        if isinstance(e, list) and len(e) <= 2:
+            # It is of the '(k v)' or '(t)' type
             if e[0] != key:  # Don't append if same as required key
                 kv.append(e)
         else:
@@ -77,7 +82,11 @@ def get_value(comm, key, default=None):
     BAP_dict, _, _ = get_bap_comment(comm)
 
     for e in get_bap_list(BAP_dict):
-        if isinstance(e, list) and len(e) == 2:  # It is of the '(k v)' type
+        if isinstance(e, list) and len(e) <= 2:
+            # It is of the '(k v)' or '(t)' type
             if e[0] == key:
-                return e[1]
+                try:
+                    return e[1]
+                except IndexError:
+                    return True
     return default

@@ -93,7 +93,7 @@ def dump_symbol_info(output_filename):
         for ea in Segments():
             fs = Functions(SegStart(ea), SegEnd(ea))
             for f in fs:
-                out.write('(%s 0x%x 0x%x)\n' % (
+                out.write('("%s" 0x%x 0x%x)\n' % (
                     func_name_propagate_thunk(f),
                     GetFunctionAttr(f, FUNCATTR_START),
                     GetFunctionAttr(f, FUNCATTR_END)))

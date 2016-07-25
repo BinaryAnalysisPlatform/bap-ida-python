@@ -17,10 +17,11 @@ class Pseudocode_BAP_Comment(abstract_ida_plugins.SimpleLine_Modifier_Hexrays):
                 continue
             ea_BAP_dict, _, _ = bap_comment.get_bap_comment(ea_comm)
             for e in bap_comment.get_bap_list(ea_BAP_dict):
-                if isinstance(e, list) and len(e) >= 2:  # i.e. '(k v)' type
+                if isinstance(e, list):
                     val_list = sl_dict.get(e[0], [])
-                    if e[1:] not in val_list:
-                        val_list.append(e[1:])
+                    if len(e) >= 2:  # i.e. '(k v)' type
+                        if e[1:] not in val_list:
+                            val_list.append(e[1:])
                     sl_dict[e[0]] = val_list
 
         if len(sl_dict) > 0:

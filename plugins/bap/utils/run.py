@@ -133,7 +133,9 @@ def run_bap_with(argument_string, no_extras=False):
         command = (
             "\
             \"{bap_executable_path}\" \"{input_file_path}\" \
-            --read-symbols-from=\"{symbol_file_location}\" --symbolizer=file \
+            --read-symbols-from=\"{symbol_file_location}\" \
+            --symbolizer=file \
+            --rooter=file \
             {remaining_args} \
             -d > \"{bap_output_file}\" 2>&1 \
             ".format(**args)

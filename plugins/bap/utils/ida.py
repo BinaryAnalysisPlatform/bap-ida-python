@@ -173,14 +173,15 @@ def dump_brancher_info(output_filename):
     def pp(l):
         return ' '.join('0x%x' % e for e in l)
 
-    with open(output_filename, 'w+') as out:
-        for ea in all_valid_ea():
-            branch_dests = dest(ea, False)
-            if len(branch_dests) > 0:
-                out.write('(0x%x (%s) (%s))\n' % (
-                    ea,
-                    pp(dest(ea, True) - branch_dests),
-                    pp(branch_dests)
+    with open(output_filename, 'w+') as out:                                        
+        for ea in all_valid_ea():                                                   
+            branch_dests_false = dest(ea, False)                                    
+            branch_dests_true = dest(ea,True)                                       
+            if len(branch_dests_false) > 0 or len(branch_dests_true) > 0:           
+                out.write('(0x%x (%s) (%s))\n' % (                                  
+                    ea,                                                             
+                    pp(branch_dests_true - branch_dests_false),                     
+                    pp(branch_dests_false)                                          
                 ))
 
 

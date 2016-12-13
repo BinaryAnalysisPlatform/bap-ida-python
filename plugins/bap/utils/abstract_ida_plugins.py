@@ -19,7 +19,7 @@ class DoNothing(idaapi.plugin_t):
             return DoNothing<SomeUniqueIdentifier>()
     """
 
-    flags = idaapi.PLUGIN_UNL
+    flags = idaapi.PLUGIN_HIDE
     comment = "Does Nothing"
     help = "Does Nothing"
     wanted_name = "Do Nothing"
@@ -27,7 +27,7 @@ class DoNothing(idaapi.plugin_t):
 
     def init(self):
         """Skip plugin."""
-        return idaapi.PLUGIN_OK
+        return idaapi.PLUGIN_SKIP
 
     def term(self):
         """Do nothing."""

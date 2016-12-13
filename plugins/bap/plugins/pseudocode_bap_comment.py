@@ -6,6 +6,10 @@ from bap.utils import bap_comment, sexpr
 
 class Pseudocode_BAP_Comment(abstract_ida_plugins.SimpleLine_Modifier_Hexrays):
     """Propagate comments from Text/Graph view to Pseudocode view."""
+    flags = idaapi.PLUGIN_HIDE
+    comment = "BAP Comment on Pseudocode"
+    help = "BAP Comment on Pseudocode"
+    wanted_name = "BAP Comment on Pseudocode"
 
     @classmethod
     def _simpleline_modify(cls, cfunc, sl):
@@ -32,9 +36,6 @@ class Pseudocode_BAP_Comment(abstract_ida_plugins.SimpleLine_Modifier_Hexrays):
             sl.line += sexpr.from_list(BAP_dict)
             sl.line += '\x02\x0c\x02\x0c'  # stop comment coloring
 
-    comment = "BAP Comment on Pseudocode"
-    help = "BAP Comment on Pseudocode"
-    wanted_name = "BAP Comment on Pseudocode"
 
 
 def PLUGIN_ENTRY():

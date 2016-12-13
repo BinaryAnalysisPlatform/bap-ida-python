@@ -42,16 +42,21 @@ def from_list(l):
 def is_valid(s):
     """Return True if s is a valid S-Expression."""
     in_str = False
+    escaped = False
     bb = 0
     for c in s:
-        if c == '(' and not in_str:
-            bb += 1
-        elif c == ')' and not in_str:
-            bb -= 1
-            if bb < 0:
-                return False
-        elif c == '\"':
-            in_str = not in_str
+        if not escaped and in_str and c == '\\':
+            escaped = True
+        else:
+            if not escaped and c == '\"':
+                in_str = not in_str
+            elif c == '(' and not in_str:
+                bb += 1
+            elif c == ')' and not in_str:
+                bb -= 1
+                if bb < 0:
+                    return False
+            escaped=False
     return bb == 0
 
 

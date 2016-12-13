@@ -17,11 +17,15 @@ bap_color = {
 }
 
 from bap.utils import abstract_ida_plugins, ida
+from bap.plugins.bap_taint import BapTaint
+
+import idc
 
 
 class Pseudocode_BAP_Taint(abstract_ida_plugins.SimpleLine_Modifier_Hexrays):
     """Propagate taint information from Text/Graph view to Pseudocode view."""
 
+    flags=idaapi.PLUGIN_HIDE
     comment = "BAP Taint Plugin for Pseudocode View"
     help = "BAP Taint Plugin for Pseudocode View"
     wanted_name = "BAP Taint Pseudocode"
@@ -79,17 +83,13 @@ class Pseudocode_BAP_Taint(abstract_ida_plugins.SimpleLine_Modifier_Hexrays):
                         return
                     self.run_over_cfunc(cfunc)
 
-                idaapi.load_plugin('BAP_Taint')
-                BAP_Taint.install_callback(autocolorize_callback)
-
-                print ("Finished installing callbacks for Taint Analysis" +
-                       " in Hex-Rays")
-
+                # idaapi.load_plugin('bap_taint')
+                BapTaint.install_callback(autocolorize_callback)
             else:
                 return idaapi.PLUGIN_SKIP
 
         except AttributeError:
-            print "init_hexrays_plugin() not found. Skipping Hex-Rays plugin."
+            idc.Warning("init_hexrays_plugin() not found. Skipping Hex-Rays plugin.")
 
         return abstract_ida_plugins.SimpleLine_Modifier_Hexrays.init(self)
                # Call superclass init()

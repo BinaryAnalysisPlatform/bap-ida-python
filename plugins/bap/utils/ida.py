@@ -52,8 +52,8 @@ def dump_loader_info(output_filename):
         out.write("))\n")
 
 
-def dump_symbol_info(output_filename):
-    """Dump information for BAP's symbolizer into output_filename."""
+def dump_symbol_info(out):
+    """Dump information for BAP's symbolizer into the out file object."""
     from idautils import Segments, Functions
     from idc import (
         SegStart, SegEnd, GetFunctionAttr,
@@ -89,17 +89,16 @@ def dump_symbol_info(output_filename):
 
     idaapi.autoWait()
 
-    with open(output_filename, 'w+') as out:
-        for ea in Segments():
-            fs = Functions(SegStart(ea), SegEnd(ea))
-            for f in fs:
-                out.write('("%s" 0x%x 0x%x)\n' % (
-                    func_name_propagate_thunk(f),
-                    GetFunctionAttr(f, FUNCATTR_START),
-                    GetFunctionAttr(f, FUNCATTR_END)))
+    for ea in Segments():
+        fs = Functions(SegStart(ea), SegEnd(ea))
+        for f in fs:
+            out.write('("%s" 0x%x 0x%x)\n' % (
+                func_name_propagate_thunk(f),
+                GetFunctionAttr(f, FUNCATTR_START),
+                GetFunctionAttr(f, FUNCATTR_END)))
 
 
-def dump_c_header(output_filename):
+def dump_c_header(out):
     """Dump type information as a C header."""
     def local_type_info():
         class my_sink(idaapi.text_sink_t):
@@ -155,10 +154,9 @@ def dump_c_header(output_filename):
         line = pp_wd(line)
         return line
 
-    with open(output_filename, 'w+') as out:
-        for line in local_type_info() + function_sigs():
-            line = preprocess(line)
-            out.write(line + '\n')
+    for line in local_type_info() + function_sigs():
+        line = preprocess(line)
+        out.write(line + '\n')
 
 
 def dump_brancher_info(output_filename):
@@ -182,21 +180,3 @@ def dump_brancher_info(output_filename):
                     pp(dest(ea, True) - branch_dests),
                     pp(branch_dests)
                 ))
-
-
-def add_hotkey(hotkey, func):
-    """
-    Assign hotkey to run func.
-
-    If a pre-existing action for the hotkey exists, then this function will
-    remove that action and replace it with func.
-
-    Arguments:
-        - hotkey : string (for example 'Ctrl-Shift-A')
-        - func : unit function (neither accepts arguments, nor returns values)
-    """
-    hotkey_ctx = idaapi.add_hotkey(hotkey, func)
-    if hotkey_ctx is None:
-        print("Failed to register {} for {}".format(hotkey, func))
-    else:
-        print("Registered {} for {}".format(hotkey, func))

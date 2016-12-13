@@ -15,9 +15,50 @@ Color Scheme:
     "Normal" White : Lines that were visited, but didn't get tainted
 """
 import idautils
+import idaapi
+import idc
+from bap.utils.run import BapIda
+from bap.utils.abstract_ida_plugins import DoNothing
+
+patterns = [
+    ('true', 'gray'),
+    ('is-visited', 'white'),
+    ('has-taints', 'red'),
+    ('taints', 'yellow')
+]
 
 
-class BAP_Taint(idaapi.plugin_t):
+class PropagateTaint(BapIda):
+    "Propagate taint information using BAP"
+    def __init__(self, addr, kind):
+        super(PropagateTaint,self).__init__()
+        self.action = 'taint propagating from {:s}0x{:X}'.format(
+            '*' if kind == 'ptr' else '',
+            addr)
+        self.passes = ['taint','propagate-taint','map-terms','emit-ida-script']
+        self.script = self.tmpfile('py')
+        scheme = self.tmpfile('scm')
+        for (pat,color) in patterns:
+            scheme.write('(({0}) (color {1}))\n'.format(pat,color))
+        scheme.close()
+
+        self.args += [
+            '--taint-'+kind, '0x{:X}'.format(addr),
+            '--passes', ','.join(self.passes),
+            '--map-terms-using', scheme.name,
+            '--emit-ida-script-attr', 'color',
+            '--emit-ida-script-file', self.script.name
+        ]
+
+
+
+class BapTaint(idaapi.plugin_t):
+    flags = 0
+    comment = "BAP Taint Plugin"
+    wanted_name = "BAP: Taint"
+
+
+    help = ""
     """
     Plugin to use BAP to propagate taint information.
 
@@ -31,7 +72,6 @@ class BAP_Taint(idaapi.plugin_t):
 
     @classmethod
     def _do_callbacks(cls, ptr_or_reg):
-        assert(ptr_or_reg == 'reg' or ptr_or_reg == 'ptr')
         data = {
             'ea': idc.ScreenEA(),
             'ptr_or_reg': ptr_or_reg
@@ -39,66 +79,24 @@ class BAP_Taint(idaapi.plugin_t):
         for callback in cls._callbacks[ptr_or_reg]:
             callback(data)
 
-    def _taint_and_color(self, ptr_or_reg):
-        import tempfile
-        from bap.utils.run import run_bap_with
+    def start(self):
+        tainter = PropagateTaint(idc.ScreenEA(), self.kind)
+        tainter.on_finish(lambda bap: self.finish(bap))
+        tainter.run()
 
-        args = {
-            'taint_location': idc.ScreenEA(),
-            'ida_script_location': tempfile.mkstemp(suffix='.py',
-                                                    prefix='ida-bap-')[1],
-            'ptr_or_reg': ptr_or_reg
-        }
-
-        idc.Message('-------- STARTING TAINT ANALYSIS --------------\n')
-        idc.SetStatus(IDA_STATUS_WAITING)
-
+    def finish(self, bap):
+        idaapi.IDAPython_ExecScript(bap.script.name, globals())
         idaapi.refresh_idaview_anyway()
+        BapTaint._do_callbacks(self.kind)
+        idc.Refresh()
 
-        run_bap_with(
-            "\
-            --taint-{ptr_or_reg}=0x{taint_location:X} \
-            --taint \
-            --propagate-taint \
-            --map-terms-with='((true) (color gray))' \
-            --map-terms-with='((is-visited) (color white))' \
-            --map-terms-with='((has-taints) (color red))' \
-            --map-terms-with='((taints) (color yellow))' \
-            --map-terms \
-            --emit-ida-script-attr=color \
-            --emit-ida-script-file={ida_script_location} \
-            --emit-ida-script \
-            ".format(**args)
-        )
-
-        idc.Message('-------- DONE WITH TAINT ANALYSIS -------------\n\n')
-        idc.SetStatus(IDA_STATUS_READY)
-
-        idaapi.IDAPython_ExecScript(args['ida_script_location'], globals())
-
-        idc.Exec("rm -f \"{ida_script_location}\"".format(**args))  # Cleanup
-
-        idc.Refresh()  # Force the color information to show up
-
-        self._do_callbacks(ptr_or_reg)
-
-    def _taint_reg_and_color(self):
-        self._taint_and_color('reg')
-
-    def _taint_ptr_and_color(self):
-        self._taint_and_color('ptr')
-
-    flags = idaapi.PLUGIN_FIX
-    comment = "BAP Taint Plugin"
-    help = "BAP Taint Plugin"
-    wanted_name = "BAP Taint Plugin"
-    wanted_hotkey = ""
+    def __init__(self, kind):
+        assert(kind in ('ptr', 'reg'))
+        self.kind = kind
+        self.wanted_name += 'pointer' if kind == 'ptr' else 'value'
 
     def init(self):
         """Initialize Plugin."""
-        from bap.utils.ida import add_hotkey
-        add_hotkey("Shift-A", self._taint_reg_and_color)
-        add_hotkey("Ctrl-Shift-A", self._taint_ptr_and_color)
         return idaapi.PLUGIN_KEEP
 
     def term(self):
@@ -108,10 +106,8 @@ class BAP_Taint(idaapi.plugin_t):
     def run(self, arg):
         """
         Run Plugin.
-
-        Ignored since keybindings are installed.
         """
-        pass
+        self.start()
 
     @classmethod
     def install_callback(cls, callback_fn, ptr_or_reg=None):
@@ -130,9 +126,12 @@ class BAP_Taint(idaapi.plugin_t):
         elif ptr_or_reg == 'ptr' or ptr_or_reg == 'reg':
             cls._callbacks[ptr_or_reg].append(callback_fn)
         else:
-            print "Invalid ptr_or_reg value passed {}".format(repr(ptr_or_reg))
+            idc.Fatal("Invalid ptr_or_reg value passed {}".
+                      format(repr(ptr_or_reg)))
+
+class BapTaintStub(DoNothing):
+    pass
 
 
 def PLUGIN_ENTRY():
-    """Install BAP_Taint upon entry."""
-    return BAP_Taint()
+    return BapTaintStub()

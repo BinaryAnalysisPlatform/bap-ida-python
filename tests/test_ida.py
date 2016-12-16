@@ -42,8 +42,6 @@ def choice(request, idapatch):
 
 
 def test_comments(addresses, comments, choice):
-    import sys
-    sys.modules['idaapi'] = __import__('mockidaapi')
     from bap.utils.ida import add_to_comment
     from bap.plugins.bap_clear_comments import PLUGIN_ENTRY
     for key in addresses:

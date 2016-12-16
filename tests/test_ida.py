@@ -2,6 +2,14 @@ import pytest
 
 
 @pytest.fixture
+def idapatch(monkeypatch):
+    def patch(attrs, ns='idaapi'):
+        for (k, v) in attrs.items():
+            monkeypatch.setattr(ns + '.' + k, v, raising=False)
+    return patch
+
+
+@pytest.fixture
 def addresses(monkeypatch):
     addresses = (0xDEADBEAF, 0xDEADBEEF)
     monkeypatch.setattr('bap.utils.ida.all_valid_ea', lambda: addresses)
@@ -9,26 +17,27 @@ def addresses(monkeypatch):
 
 
 @pytest.fixture
-def comments(monkeypatch):
-    comments = {}
-
-    def get_cmt(ea, off):
-        return comments.get(ea)
+def comments(idapatch):
+    cmts = {}
 
     def set_cmt(ea, val, off):
-        comments[ea] = val
-    monkeypatch.setattr('idaapi.get_cmt', get_cmt)
-    monkeypatch.setattr('idaapi.set_cmt', set_cmt)
-    return comments
+        cmts[ea] = val
+    idapatch({
+        'get_cmt': lambda ea, off: cmts.get(ea),
+        'set_cmt': set_cmt
+    })
+    return cmts
 
 
 @pytest.fixture(params=['yes', 'no', 'cancel'])
-def choice(request, monkeypatch):
+def choice(request, idapatch):
     choice = request.param
-    monkeypatch.setattr('idaapi.ASKBTN_YES', 'yes')
-    monkeypatch.setattr('idaapi.ASKBTN_NO', 'no')
-    monkeypatch.setattr('idaapi.ASKBTN_CANCEL', 'cancel')
-    monkeypatch.setattr('idaapi.askyn_c', lambda d, t: request.param)
+    idapatch({
+        'ASKBTN_YES': 'yes',
+        'ASKBTN_NO': 'no',
+        'ASKBTN_CANCEL': 'cancel',
+        'askyn_c': lambda d, t: request.param
+    })
     return choice
 
 

@@ -9,12 +9,12 @@ import sys
 
 import traceback
 
-import idc #pylint: disable=import-error
-import idaapi #pylint: disable=import-error
+import idc  # pylint: disable=import-error
+import idaapi  # pylint: disable=import-error
 from bap.utils import ida, config
 
 
-#pylint: disable=missing-docstring
+# pylint: disable=missing-docstring
 
 class Bap(object):
     """Bap instance base class.
@@ -25,9 +25,7 @@ class Bap(object):
     specifics, so that later we can lift it to the bap-python library
     """
 
-
     DEBUG = False
-
 
     def __init__(self, bap, input_file):
         """Sandbox for the BAP process.
@@ -57,7 +55,6 @@ class Bap(object):
         self.out = self.tmpfile("out")
         self.action = "running bap"
 
-
     def run(self):
         "starts BAP process"
         if self.DEBUG:
@@ -67,7 +64,7 @@ class Bap(object):
             stdout=self.out,
             stderr=subprocess.STDOUT,
             env={
-                'BAP_LOG_DIR' : self.tmpdir
+                'BAP_LOG_DIR': self.tmpdir
             })
 
     def finished(self):
@@ -103,7 +100,7 @@ class Bap(object):
     def tmpfile(self, suffix, *args, **kwargs):
         "creates a new temporary files in the self.tmpdir"
         if getattr(self, 'tmpdir', None) is None:
-            #pylint: disable=attribute-defined-outside-init
+            # pylint: disable=attribute-defined-outside-init
             self.tmpdir = tempfile.mkdtemp(prefix="bap")
 
         tmp = tempfile.NamedTemporaryFile(
@@ -115,6 +112,7 @@ class Bap(object):
             **kwargs)
         self.fds.append(tmp)
         return tmp
+
 
 class BapIda(Bap):
     """BAP instance in IDA.
@@ -129,11 +127,10 @@ class BapIda(Bap):
     # useful, for handling gui. See also, on_finished
     # and on_cancel, for user specific handlers.
     observers = {
-        'instance_created'  : [],
-        'instance_updated'  : [],
-        'instance_finished' : [],
+        'instance_created': [],
+        'instance_updated': [],
+        'instance_finished': [],
     }
-
 
     def __init__(self, symbols=True):
         try:
@@ -176,7 +173,7 @@ class BapIda(Bap):
             self._do_run()
 
         idc.Message("BAP> total number of running instances: {0}\n".
-                       format(len(BapIda.instances)))
+                    format(len(BapIda.instances)))
 
     def _setup_symbols(self):
         "pass symbol information from IDA to BAP"
@@ -187,7 +184,6 @@ class BapIda(Bap):
                 "--symbolizer=file",
                 "--rooter=file"
             ]
-
 
     def _setup_headers(self, bap):
         "pass type information from IDA to BAP"
@@ -210,7 +206,6 @@ class BapIda(Bap):
         self._on_cancel.append(cleanup)
         self._on_finish.append(cleanup)
 
-
     def _do_run(self):
         try:
             super(BapIda, self).run()
@@ -219,26 +214,24 @@ class BapIda(Bap):
             idc.SetStatus(idc.IDA_STATUS_THINKING)
             self.run_handlers(self.observers['instance_created'])
             idc.Message("BAP> created new instance with PID {0}\n".
-                           format(self.proc.pid))
-        except: #pylint: disable=bare-except
+                        format(self.proc.pid))
+        except:  # pylint: disable=bare-except
             idc.Message("BAP> failed to create instance\nError: {0}\n".
                         format(str(sys.exc_info()[1])))
             traceback.print_exc()
-
 
     def run_handlers(self, handlers):
         failures = 0
         for handler in handlers:
             try:
                 handler(self)
-            except: #pylint: disable=bare-except
+            except:  # pylint: disable=bare-except
                 failures += 1
                 idc.Message("BAP> {0} failed because {1}\n".
-                               format(self.action, str(sys.exc_info()[1])))
+                            format(self.action, str(sys.exc_info()[1])))
                 traceback.print_exc()
         if failures != 0:
             idc.Warning("Some BAP handlers failed")
-
 
     def close(self):
         super(BapIda, self).close()
@@ -282,8 +275,10 @@ class BapIda(Bap):
     def on_cancel(self, callback):
         self._on_cancel.append(callback)
 
+
 class BapIdaError(Exception):
     pass
+
 
 class BapNotFound(BapIdaError):
     pass
@@ -321,7 +316,6 @@ def check_and_configure_bap():
     config.set('bap_executable_path', bap_path)
 
 
-
 def system_path():
     try:
         return subprocess.check_output(['which', 'bap']).strip()
@@ -336,6 +330,7 @@ def opam_path():
         return os.path.join(res, 'bap')
     except OSError:
         return None
+
 
 def ask_user(default_path):
     def confirm(msg):
@@ -355,6 +350,7 @@ def ask_user(default_path):
             if not confirm("Path does not point to a file. Confirm?"):
                 continue
         return bap_path
+
 
 BAP_FINDERS.append(system_path)
 BAP_FINDERS.append(opam_path)

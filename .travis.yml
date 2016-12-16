@@ -1,0 +1,4 @@
+sudo: false
+language: python
+install: pip install tox
+script: tox

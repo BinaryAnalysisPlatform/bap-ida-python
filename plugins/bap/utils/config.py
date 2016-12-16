@@ -1,7 +1,7 @@
 """Module for reading from and writing to the bap.cfg config file."""
 
 import os
-import idaapi #pylint: disable=import-error
+import idaapi  # pylint: disable=import-error
 
 CFG_DIR = idaapi.idadir('cfg')
 CFG_PATH = os.path.join(CFG_DIR, 'bap.cfg')
@@ -62,7 +62,8 @@ def is_set(key):
     """
     return get(key, default='0').lower() in ('1', 'true', 'yes')
 
-def set(path, value): #pylint: disable=redefined-builtin
+
+def set(path, value):  # pylint: disable=redefined-builtin
     """Set key:value in the config file."""
     cfg = _read()
     key = Key(path)
@@ -72,7 +73,7 @@ def set(path, value): #pylint: disable=redefined-builtin
     for i, line in enumerate(cfg[key.section]):
         if line[0] == ';':  # Comment
             continue
-        elif line.split()[0] == key:
+        elif line.split()[0] == key.value:
             cfg[key.section][i] = '{}\t{}\t; Previously: {}'.format(
                               key.value, value, line)
             break
@@ -82,7 +83,7 @@ def set(path, value): #pylint: disable=redefined-builtin
     _write(cfg)
 
 
-class Key(object): #pylint: disable=too-few-public-methods
+class Key(object):  # pylint: disable=too-few-public-methods
     "Configuration key"
     def __init__(self, path):
         elts = path.split('.')

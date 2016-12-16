@@ -1,15 +1,17 @@
+import idaapi
 from idaapi import ASKBTN_YES
-from bap.utils.bap_comment import get_bap_comment
+
+
+from bap.utils import bap_comment
 from bap.utils.ida import all_valid_ea
 
 
-class Main(idaapi.plugin_t):
+class BapClearComments(idaapi.plugin_t):
     flags = idaapi.PLUGIN_DRAW
     comment = "removes all BAP comments"
-    help=""
+    help = ""
     wanted_name = "BAP: Clear comments"
     wanted_hotkey = "Ctrl-Shift-S"
-
 
     def clear_bap_comments(self):
         """Ask user for confirmation and then clear (BAP ..) comments."""
@@ -19,13 +21,9 @@ class Main(idaapi.plugin_t):
             return
 
         for ea in all_valid_ea():
-            old_comm = idaapi.get_cmt(ea, 0)
-            if old_comm is None:
-                continue
-            _, start_loc, end_loc = get_bap_comment(old_comm)
-            new_comm = old_comm[:start_loc] + old_comm[end_loc:]
-            idaapi.set_cmt(ea, new_comm, 0)
-
+            comm = idaapi.get_cmt(ea, 0)
+            if bap_comment.parse(comm):
+                idaapi.set_cmt(ea, '', 0)
 
     def init(self):
         return idaapi.PLUGIN_KEEP
@@ -37,4 +35,4 @@ class Main(idaapi.plugin_t):
 
 
 def PLUGIN_ENTRY():
-    return Main()
+    return BapClearComments()

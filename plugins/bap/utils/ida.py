@@ -1,15 +1,25 @@
 """Utilities that interact with IDA."""
 import idaapi
+import idc
+from bap.utils import bap_comment
 
 
 def add_to_comment(ea, key, value):
     """Add key:value to comm string at EA."""
-    from bap_comment import add_to_comment_string
-    old_comm = idaapi.get_cmt(ea, 0)
-    if old_comm is None:
-        old_comm = ''
-    new_comm = add_to_comment_string(old_comm, key, value)
-    idaapi.set_cmt(ea, new_comm, 0)
+    cmt = idaapi.get_cmt(ea, 0)
+    comm = {}
+    if cmt:
+        comm = bap_comment.parse(cmt)
+        if comm is None:
+            comm = {}
+    if value == '()':
+        comm.setdefault(key, [])
+    else:
+        if key in comm:
+            comm[key].append(value)
+        else:
+            comm[key] = [value]
+    idaapi.set_cmt(ea, bap_comment.dumps(comm), 0)
 
 
 def cfunc_from_ea(ea):
@@ -37,7 +47,7 @@ def dump_loader_info(output_filename):
     from idautils import Segments
     import idc
 
-    idaapi.autoWait()
+    idc.Wait()
 
     with open(output_filename, 'w+') as out:
         info = idaapi.get_inf_structure()
@@ -163,7 +173,7 @@ def dump_brancher_info(output_filename):
     """Dump information for BAP's brancher into output_filename."""
     from idautils import CodeRefsFrom
 
-    idaapi.autoWait()
+    idc.Wait()
 
     def dest(ea, flow):  # flow denotes whether normal flow is also taken
         return set(CodeRefsFrom(ea, flow))

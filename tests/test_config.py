@@ -1,6 +1,4 @@
-def test_set_and_get(monkeypatch, tmpdir):
-    monkeypatch.setattr('idaapi.idadir', lambda x:
-                        str(tmpdir.mkdir(x)))
+def test_set_and_get(idadir):
     from bap.utils.config import get, set, is_set
     for path in ('foo', 'foo.bar'):
         assert get(path) is None

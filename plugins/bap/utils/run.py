@@ -310,25 +310,30 @@ def check_and_configure_bap():
             break
 
     # always ask a user to confirm the path that was found using heuristics
-    user_path = ask_user(bap_path)
-    if user_path:
-        bap_path = user_path
-    config.set('bap_executable_path', bap_path)
+    bap_path = ask_user(bap_path)
+
+    if bap_path and len(bap_path) > 0:
+        config.set('bap_executable_path', bap_path)
+
+
+def preadline(cmd):
+    try:
+        res = subprocess.check_output(cmd, universal_newlines=True)
+        return res.strip()
+    except (OSError, subprocess.CalledProcessError):
+        return None
 
 
 def system_path():
-    try:
-        return subprocess.check_output(['which', 'bap']).strip()
-    except (OSError, subprocess.CalledProcessError):
-        return None
+    return preadline(['which', 'bap'])
 
 
 def opam_path():
     try:
         cmd = ['opam', 'config', 'var', 'bap:bin']
-        res = subprocess.check_output(cmd).strip()
+        res = preadline(cmd).strip()
         return os.path.join(res, 'bap')
-    except OSError:
+    except:
         return None
 
 

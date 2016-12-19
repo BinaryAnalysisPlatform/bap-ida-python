@@ -81,22 +81,11 @@ class Popen(subprocess.Popen):
     patches = []
 
     def __init__(self, args, **kwargs):
-        cmd = ' '.join(args)
-        patch = None
-        for p in Popen.patches:
-            if 'test' in p:
-                if p['test'](args) or p['test'](cmd):
-                    patch = p
-                    break
-            else:
-                if p['cmd'] == cmd:
-                    patch = p
-                    break
-        if patch:
-            super(Popen, self).__init__(
-                patch['script'],
-                shell=True,
-                **kwargs)
+        for patch in Popen.patches:
+            script = patch(args)
+            if script:
+                super(Popen, self).__init__(script, shell=True, **kwargs)
+                break
         else:
             super(Popen, self).__init__(args, **kwargs)
 
@@ -104,15 +93,21 @@ class Popen(subprocess.Popen):
 @pytest.fixture
 def popenpatch(monkeypatch):
     monkeypatch.setattr('subprocess.Popen', Popen)
-    
-    def patch(cmd, script):
-        patch = {}
-        if callable(cmd):
-            patch['test'] = cmd
-        else:
-            patch['cmd'] = cmd
-        patch['script'] = script
+
+    def same_cmd(cmd, args):
+        return cmd == ' '.join(args)
+
+    def add(patch):
         Popen.patches.append(patch)
+
+    def patch(*args):
+        if len(args) == 1:
+            add(args[0])
+        elif len(args) == 2:
+            add(lambda pargs: args[1] if same_cmd(args[0], pargs) else None)
+        else:
+            raise TypeError('popenpatch() takes 1 or two arguments ({} given)'.
+                            format(len(args)))
     yield patch
     Popen.patches = []
 
@@ -128,3 +123,71 @@ def bappath(request, popenpatch):
     return path
 
 
+class Ida(object):
+
+    def __init__(self):
+        self.time = 0
+        self.callbacks = []
+        self.log = []
+        self.status = 'ready'
+
+    def register_timer(self, interval, cb):
+        self.callbacks.append({
+            'time': self.time + interval,
+            'call': cb
+            })
+
+    def message(self, msg):
+        self.log.append(msg)
+
+    def set_status(self, status):
+        self.status = status
+
+    def run(self):
+        while self.callbacks:
+            self.time += 1
+            for cb in self.callbacks:
+                if cb['time'] < self.time:
+                    time = cb['call']()
+                    if time < 0:
+                        self.callbacks.remove(cb)
+                    else:
+                        cb['time'] = self.time + time
+
+
+class Bap(object):
+
+    def __init__(self, path):
+        self.path = path
+        self.calls = []
+
+    def call(self, args):
+        self.calls.append({'args': args})
+        return True
+
+
+@pytest.fixture
+def bapida(idapatch, popenpatch, monkeypatch, idadir):
+    from bap.utils import config
+    ida = Ida()
+    bap = Bap(BAP_PATH)
+
+    def run_bap(args):
+        if args[0] == BAP_PATH:
+            if bap.call(args):
+                return 'true'
+            else:
+                return 'false'
+
+    config.set('bap_executable_path', bap.path)
+    idapatch({
+        'register_timer': ida.register_timer,
+        'get_input_ida_file_path': lambda: '/bin/true'
+    })
+    idapatch(ns='idc', attrs={
+        'Message': ida.message,
+        'SetStatus': ida.set_status,
+    })
+    popenpatch(run_bap)
+    monkeypatch.setattr('bap.utils.ida.dump_symbol_info', lambda out: None)
+    return (bap, ida)

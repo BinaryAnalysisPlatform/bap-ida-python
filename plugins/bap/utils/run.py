@@ -144,7 +144,7 @@ class BapIda(Bap):
         if bap is None:
             idc.Warning("Can't locate BAP\n")
             raise BapNotFound()
-        binary = idc.GetInputFilePath()
+        binary = idaapi.get_input_file_path()
         super(BapIda, self).__init__(bap, binary)
         # if you run IDA inside IDA you will crash IDA
         self.args.append('--no-ida')

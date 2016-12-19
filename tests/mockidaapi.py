@@ -10,3 +10,4 @@ def idadir(sub): NotImplemented
 def get_cmt(ea, off): NotImplemented
 def set_cmt(ea, off): NotImplemented
 def askyn_c(dflt, title): NotImplemented
+def get_input_file_path() : NotImplemented

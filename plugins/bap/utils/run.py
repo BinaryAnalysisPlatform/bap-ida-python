@@ -247,8 +247,6 @@ class BapIda(Bap):
             elif self.proc.returncode > 0:
                 idc.Message("BAP> an error has occured while {0}\n".
                             format(self.action))
-                with open(self.out.name) as out:
-                    idc.Message('BAP> output:\n{0}\n'.format(out.read()))
             else:
                 idc.Message("BAP> was killed by signal {0}\n".
                             format(-self.proc.returncode))

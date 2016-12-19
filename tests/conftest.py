@@ -160,10 +160,16 @@ class Bap(object):
     def __init__(self, path):
         self.path = path
         self.calls = []
+        self.on_call = []
 
     def call(self, args):
-        self.calls.append({'args': args})
-        return True
+        proc = {'args': args}
+        self.calls.append(proc)
+        for call in self.on_call:
+            res = call(self, proc)
+            if res is not None:
+                return res
+        return 0
 
 
 @pytest.fixture
@@ -174,10 +180,7 @@ def bapida(idapatch, popenpatch, monkeypatch, idadir):
 
     def run_bap(args):
         if args[0] == BAP_PATH:
-            if bap.call(args):
-                return 'true'
-            else:
-                return 'false'
+            return 'exit ' + str(bap.call(args))
 
     config.set('bap_executable_path', bap.path)
     idapatch({

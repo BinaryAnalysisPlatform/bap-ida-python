@@ -66,3 +66,21 @@ def test_event_handlers(bapida):
         assert event in bap.events
 
     assert 'success' in bap.events
+
+
+def test_failure(bapida):
+    from bap.utils.run import BapIda
+    backend, frontend = bapida
+    bap = BapIda()
+    bap.events = []
+
+    backend.on_call.append(lambda bap, args: 1)
+    bap.on_finish(lambda bap: bap.events.append('success'))
+
+    bap.run()
+    frontend.run()
+
+    for msg in frontend.log:
+        print(msg)
+
+    assert 'success' not in bap.events

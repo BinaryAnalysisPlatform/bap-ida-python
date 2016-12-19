@@ -78,13 +78,23 @@ def idadir(idapatch, tmpdir):
 
 
 class Popen(subprocess.Popen):
-    patches = {}
+    patches = []
 
     def __init__(self, args, **kwargs):
         cmd = ' '.join(args)
-        if cmd in Popen.patches:
+        patch = None
+        for p in Popen.patches:
+            if 'test' in p:
+                if p['test'](args) or p['test'](cmd):
+                    patch = p
+                    break
+            else:
+                if p['cmd'] == cmd:
+                    patch = p
+                    break
+        if patch:
             super(Popen, self).__init__(
-                Popen.patches[cmd],
+                patch['script'],
                 shell=True,
                 **kwargs)
         else:
@@ -94,10 +104,17 @@ class Popen(subprocess.Popen):
 @pytest.fixture
 def popenpatch(monkeypatch):
     monkeypatch.setattr('subprocess.Popen', Popen)
-
+    
     def patch(cmd, script):
-        Popen.patches[cmd] = script
-    return patch
+        patch = {}
+        if callable(cmd):
+            patch['test'] = cmd
+        else:
+            patch['cmd'] = cmd
+        patch['script'] = script
+        Popen.patches.append(patch)
+    yield patch
+    Popen.patches = []
 
 
 @pytest.fixture(params=[None, BAP_PATH])
@@ -109,3 +126,5 @@ def bappath(request, popenpatch):
         popenpatch('which bap', 'false')
     popenpatch('opam config var bap:bin', 'echo undefind; false')
     return path
+
+

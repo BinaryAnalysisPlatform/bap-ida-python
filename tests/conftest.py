@@ -1,5 +1,6 @@
 import sys
 import subprocess
+from time import sleep, time as current_time
 
 import pytest
 
@@ -124,14 +125,26 @@ def bappath(request, popenpatch):
 
 
 class Ida(object):
+    '''IDA instance imitator. '''
 
     def __init__(self):
         self.time = 0
         self.callbacks = []
         self.log = []
+        self.warnings = []
         self.status = 'ready'
 
     def register_timer(self, interval, cb):
+        '''add a recurrent callback.
+
+        Registers a function that will be called after the specified
+        ``interval``. The function may return a positive value, that
+        will effectively re-register itself. If a negative value is
+        returned, then the callback will not be called anymore.
+
+        Note: the realtime clocks are imitated with the ``sleep``
+        function using 10ms increments.
+        '''
         self.callbacks.append({
             'time': self.time + interval,
             'call': cb
@@ -140,29 +153,73 @@ class Ida(object):
     def message(self, msg):
         self.log.append(msg)
 
+    def warning(self, msg):
+        self.warnings.append(msg)
+
     def set_status(self, status):
         self.status = status
 
     def run(self):
+        '''Runs IDA event cycle.
+        The function will return if there are no more callbacks.
+        '''
         while self.callbacks:
-            self.time += 1
+            sleep(0.1)
+            self.time += 100
             for cb in self.callbacks:
                 if cb['time'] < self.time:
                     time = cb['call']()
-                    if time < 0:
+                    if time is None or time < 0:
                         self.callbacks.remove(cb)
                     else:
                         cb['time'] = self.time + time
 
 
 class Bap(object):
+    '''BAP utility mock.
+
+    From the perspective of the IDA integration, the bap frontend
+    utility is considered a backend. So, we will refer to it as a
+    backend here and later.
+
+    This mock class mimicks the behavior of the bap backend, as the
+    unit tests must not dependend on the presence of the bap
+    framework.
+
+    The instances of the backend has the following attributes:
+
+    - ``path`` a path to bap executable
+    - ``calls`` a list of calls made to backend, each call is
+       a dictionary that has at least these fields:
+       - args - arguments passed to the Popen call
+    - ``on_call`` a list of the call event handlers. An event
+       handler should be a callable, that accepts two arguments.
+       The first argument is a reference to the bap backend instance,
+       the second is a reference to the ``proc`` dictionary (as described
+       above). If a callback returns a non None value, then this value is
+       used as a return value of the call to BAP. See ``call`` method
+       description for more information about the return values.
+    '''
 
     def __init__(self, path):
+        '''initializes BAP backend instance.
+
+        Once instance corresponds to one bap installation (not to a
+        process instance). See class descriptions for information about
+        the instance attributes.
+        '''
         self.path = path
         self.calls = []
         self.on_call = []
 
     def call(self, args):
+        '''mocks a call to a bap executable.
+
+        If a call returns with an integer, then it is passed to the
+        shell's exit command, otherwise a string representation of a
+        returned value is used to form a command, that is then passed
+        to a Popen constructor.
+        '''
         proc = {'args': args}
         self.calls.append(proc)
         for call in self.on_call:
@@ -180,15 +237,22 @@ def bapida(idapatch, popenpatch, monkeypatch, idadir):
 
     def run_bap(args):
         if args[0] == BAP_PATH:
-            return 'exit ' + str(bap.call(args))
+            res = bap.call(args) or 0
+            if isinstance(res, int):
+                return 'exit ' + str(res)
+            else:
+                return str(res)
 
     config.set('bap_executable_path', bap.path)
+    monkeypatch.setattr('os.access', lambda p, x: p == BAP_PATH)
+
     idapatch({
         'register_timer': ida.register_timer,
-        'get_input_ida_file_path': lambda: '/bin/true'
+        'get_input_ida_file_path': lambda: 'true'
     })
     idapatch(ns='idc', attrs={
         'Message': ida.message,
+        'Warning': ida.warning,
         'SetStatus': ida.set_status,
     })
     popenpatch(run_bap)

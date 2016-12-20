@@ -54,6 +54,7 @@ def test_event_handlers(bapida):
     for event in events:
         BapIda.observers[event].append(partial(occured, event=event))
 
+    backend.on_call.append(lambda bap, args: 'sleep 1')
     bap.on_finish(lambda bap: occured(bap, 'success'))
 
     bap.run()
@@ -84,3 +85,24 @@ def test_failure(bapida):
         print(msg)
 
     assert 'success' not in bap.events
+    assert len(BapIda.instances) == 0
+
+
+def test_cancel(bapida):
+    from bap.utils.run import BapIda
+    backend, frontend = bapida
+    bap = BapIda()
+    bap.events = []
+
+    backend.on_call.append(lambda bap, args: 'sleep 100')
+    frontend.register_timer(600, lambda: bap.cancel())
+
+    bap.on_finish(lambda bap: bap.events.append('success'))
+    bap.on_cancel(lambda bap: bap.events.append('canceled'))
+
+    bap.run()
+    frontend.run()
+
+    assert 'success' not in bap.events
+    assert 'canceled' in bap.events
+    assert len(BapIda.instances) == 0

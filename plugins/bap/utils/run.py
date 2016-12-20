@@ -49,11 +49,13 @@ class Bap(object):
         - `fds` a list of opened filedescriptors to be closed on the exit
 
         """
+        self.tmpdir = None
         self.args = [bap, input_file]
         self.proc = None
         self.fds = []
         self.out = self.tmpfile("out")
         self.action = "running bap"
+        self.closed = False
 
     def run(self):
         "starts BAP process"
@@ -68,7 +70,7 @@ class Bap(object):
             })
 
     def finished(self):
-        "true is the process has finished"
+        "true if the process is no longer running"
         return self.proc is not None and self.proc.poll() is not None
 
     def close(self):
@@ -78,6 +80,7 @@ class Bap(object):
                 self.proc.terminate()
                 self.proc.wait()
         self.cleanup()
+        self.closed = True
 
     def cleanup(self):
         """Close and remove all created temporary files.
@@ -99,8 +102,7 @@ class Bap(object):
 
     def tmpfile(self, suffix, *args, **kwargs):
         "creates a new temporary files in the self.tmpdir"
-        if getattr(self, 'tmpdir', None) is None:
-            # pylint: disable=attribute-defined-outside-init
+        if self.tmpdir is None:
             self.tmpdir = tempfile.mkdtemp(prefix="bap")
 
         tmp = tempfile.NamedTemporaryFile(
@@ -129,6 +131,8 @@ class BapIda(Bap):
     observers = {
         'instance_created': [],
         'instance_updated': [],
+        'instance_canceled': [],
+        'instance_failed':   [],
         'instance_finished': [],
     }
 
@@ -141,8 +145,12 @@ class BapIda(Bap):
             traceback.print_exc()
             raise BapIdaError()
         bap = config.get('bap_executable_path')
-        if bap is None:
-            idc.Warning("Can't locate BAP\n")
+        if bap is None or not os.access(bap, os.X_OK):
+            idc.Warning('''
+            The bap application is either not found or is not an executable.
+            Please install bap or, if it is installed, provide a path to it.
+            Installation instructions are available at: http://bap.ece.cmu.edu.
+            ''')
             raise BapNotFound()
         binary = idaapi.get_input_file_path()
         super(BapIda, self).__init__(bap, binary)
@@ -150,6 +158,7 @@ class BapIda(Bap):
         self.args.append('--no-ida')
         self._on_finish = []
         self._on_cancel = []
+        self._on_failed = []
         if symbols:
             self._setup_symbols()
 
@@ -203,16 +212,15 @@ class BapIda(Bap):
                 "--api-remove", "c:{0}".
                 format(os.path.basename(out.name))
             ])
-        self._on_cancel.append(cleanup)
-        self._on_finish.append(cleanup)
+        self.on_cleanup(cleanup)
 
     def _do_run(self):
         try:
             super(BapIda, self).run()
             BapIda.instances.append(self)
-            idaapi.register_timer(200, self.update)
+            idaapi.register_timer(self.poll_interval_ms, self.update)
             idc.SetStatus(idc.IDA_STATUS_THINKING)
-            self.run_handlers(self.observers['instance_created'])
+            self.run_handlers('instance_created')
             idc.Message("BAP> created new instance with PID {0}\n".
                         format(self.proc.pid))
         except:  # pylint: disable=bare-except
@@ -220,7 +228,18 @@ class BapIda(Bap):
                         format(str(sys.exc_info()[1])))
             traceback.print_exc()
 
-    def run_handlers(self, handlers):
+    def run_handlers(self, event):
+        assert event in self.observers
+        handlers = []
+        instance_handlers = {
+            'instance_canceled': self._on_cancel,
+            'instance_failed':   self._on_failed,
+            'instance_finished': self._on_finish,
+        }
+
+        handlers += self.observers[event]
+        handlers += instance_handlers.get(event, [])
+
         failures = 0
         for handler in handlers:
             try:
@@ -240,19 +259,22 @@ class BapIda(Bap):
     def update(self):
         if self.finished():
             if self.proc.returncode == 0:
-                self.run_handlers(self._on_finish)
-                self.run_handlers(self.observers['instance_finished'])
+                self.run_handlers('instance_finished')
                 self.close()
                 idc.Message("BAP> finished " + self.action + '\n')
             elif self.proc.returncode > 0:
+                self.run_handlers('instance_failed')
+                self.close()
                 idc.Message("BAP> an error has occured while {0}\n".
                             format(self.action))
             else:
+                if not self.closed:
+                    self.run_handlers('instance_canceled')
                 idc.Message("BAP> was killed by signal {0}\n".
                             format(-self.proc.returncode))
             return -1
         else:
-            self.run_handlers(self.observers['instance_updated'])
+            self.run_handlers('instance_updated')
             thinking = False
             for bap in BapIda.instances:
                 if bap.finished():
@@ -260,12 +282,16 @@ class BapIda(Bap):
                     thinking = True
             if not thinking:
                 idc.SetStatus(idc.IDA_STATUS_READY)
-            return 200
+            return self.poll_interval_ms
 
     def cancel(self):
-        self.run_handlers(self._on_cancel)
-        self.run_handlers(self.observers['instance_finished'])
+        self.run_handlers('instance_canceled')
         self.close()
+
+    def on_cleanup(self, callback):
+        self.on_finish(callback)
+        self.on_cancel(callback)
+        self.on_failed(callback)
 
     def on_finish(self, callback):
         self._on_finish.append(callback)
@@ -273,13 +299,17 @@ class BapIda(Bap):
     def on_cancel(self, callback):
         self._on_cancel.append(callback)
 
+    def on_failed(self, callback):
+        self._on_failed.append(callback)
+
 
 class BapIdaError(Exception):
     pass
 
 
 class BapNotFound(BapIdaError):
-    pass
+    def __str__(self):
+        return 'Unable to detect bap executable '
 
 
 BAP_FINDERS = []

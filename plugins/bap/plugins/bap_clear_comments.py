@@ -1,9 +1,8 @@
 import idaapi
 from idaapi import ASKBTN_YES
 
-
 from bap.utils import bap_comment
-from bap.utils.ida import all_valid_ea
+from bap.utils import ida
 
 
 class BapClearComments(idaapi.plugin_t):
@@ -20,7 +19,7 @@ class BapClearComments(idaapi.plugin_t):
                           "Delete all (BAP ..) comments?") != ASKBTN_YES:
             return
 
-        for ea in all_valid_ea():
+        for ea in ida.addresses():  # TODO: store actually commented addresses
             comm = idaapi.get_cmt(ea, 0)
             if bap_comment.parse(comm):
                 idaapi.set_cmt(ea, '', 0)

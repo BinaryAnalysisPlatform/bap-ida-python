@@ -1,16 +1,25 @@
-def test_comments(addresses, comments, choice):
-    from bap.utils.ida import add_to_comment
-    from bap.plugins.bap_clear_comments import PLUGIN_ENTRY
-    for key in addresses:
-        add_to_comment(key, 'foo', 'bar')
-        assert comments[key] == 'BAP: foo=bar'
-        add_to_comment(key, 'foo', 'baz')
-        assert comments[key] == 'BAP: foo=bar,baz'
-        add_to_comment(key, 'bar', '()')
-        assert comments[key] == 'BAP: bar foo=bar,baz'
-    plugin = PLUGIN_ENTRY()
-    plugin.init()
-    plugin.run(0)
+def test_comments(addresses, comments, choice, load):
+    from bap.utils import ida
+    from bap.plugins import bap_clear_comments
+    from bap.plugins import bap_comments
+
+    ida.comment.handlers = []
+    ida.comment.comments.clear()
+
+    load(bap_comments)
+    clear = load(bap_clear_comments)
+
+    assert len(ida.comment.handlers) == 1
+
+    for addr in addresses:
+        ida.comment.add(addr, 'foo', 'bar')
+        assert comments[addr] == 'BAP: foo=bar'
+        ida.comment.add(addr, 'foo', 'baz')
+        assert comments[addr] == 'BAP: foo=bar,baz'
+        ida.comment.add(addr, 'bar', '()')
+        assert comments[addr] == 'BAP: bar foo=bar,baz'
+
+    clear.run(0)
     bap_cmts = [c for c in comments.values() if 'BAP:' in c]
     expected = {
         'yes': 0,

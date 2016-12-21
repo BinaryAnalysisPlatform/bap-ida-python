@@ -1,75 +1,45 @@
 """Utilities that interact with IDA."""
 import idaapi
 import idc
-from bap.utils import bap_comment
+import idautils
+
+from ._service import Service
+from ._comment_handler import CommentHandlers
+from ._ctyperewriter import Rewriter
 
 
-def add_to_comment(ea, key, value):
-    """Add key:value to comm string at EA."""
-    cmt = idaapi.get_cmt(ea, 0)
-    comm = {}
-    if cmt:
-        comm = bap_comment.parse(cmt)
-        if comm is None:
-            comm = {}
-    if value == '()':
-        comm.setdefault(key, [])
-    else:
-        if key in comm:
-            comm[key].append(value)
-        else:
-            comm[key] = [value]
-    idaapi.set_cmt(ea, bap_comment.dumps(comm), 0)
+service = Service()
+comment = CommentHandlers()
+rewriter = Rewriter()
 
 
-def cfunc_from_ea(ea):
-    """Get cfuncptr_t from EA."""
-    func = idaapi.get_func(ea)
-    if func is None:
-        return None
-    cfunc = idaapi.decompile(func)
-    return cfunc
-
-
-def all_valid_ea():
-    """Return all valid EA as a Python generator."""
-    from idautils import Segments
-    from idc import SegStart, SegEnd
-    for s in Segments():
-        ea = SegStart(s)
-        while ea < SegEnd(s):
+def addresses():
+    """Generate all mapped addresses."""
+    for s in idc.Segments():
+        ea = idc.SegStart(s)
+        while ea < idc.SegEnd(s):
             yield ea
             ea = idaapi.nextaddr(ea)
 
 
-def dump_loader_info(output_filename):
-    """Dump information for BAP's loader into output_filename."""
-    from idautils import Segments
-    import idc
-
-    idc.Wait()
-
-    with open(output_filename, 'w+') as out:
-        info = idaapi.get_inf_structure()
-        size = "r32" if info.is_32bit else "r64"
-        out.write("(%s %s (" % (info.get_proc_name()[1], size))
-        for seg in Segments():
-            out.write("\n(%s %s %d (0x%X %d))" % (
-                idaapi.get_segm_name(seg),
-                "code" if idaapi.segtype(seg) == idaapi.SEG_CODE else "data",
-                idaapi.get_fileregion_offset(seg),
-                seg, idaapi.getseg(seg).size()))
-        out.write("))\n")
+@service.provider('loader')
+def output_segments(out):
+    """Dump binary segmentation."""
+    info = idaapi.get_inf_structure()
+    size = "r32" if info.is_32bit else "r64"
+    out.write('(', info.get_proc_name()[1], ' ', size, ' (')
+    for seg in idautils.Segments():
+        out.write("\n({} {} {:d} ({:#x} {d}))".format(
+            idaapi.get_segm_name(seg),
+            "code" if idaapi.segtype(seg) == idaapi.SEG_CODE else "data",
+            idaapi.get_fileregion_offset(seg),
+            seg, idaapi.getseg(seg).size()))
+    out.write("))\n")
 
 
-def dump_symbol_info(out):
-    """Dump information for BAP's symbolizer into the out file object."""
-    from idautils import Segments, Functions
-    from idc import (
-        SegStart, SegEnd, GetFunctionAttr,
-        FUNCATTR_START, FUNCATTR_END
-    )
-
+@service.provider('symbols')
+def output_symbols(out):
+    """Dump symbols."""
     try:
         from idaapi import get_func_name2 as get_func_name
         # Since get_func_name is deprecated (at least from IDA 6.9)
@@ -97,96 +67,79 @@ def dump_symbol_info(out):
             # Fallback to non-propagated name for weird times that IDA gives
             #     a 0 length name, or finds a longer import name
 
-    idaapi.autoWait()
-
-    for ea in Segments():
-        fs = Functions(SegStart(ea), SegEnd(ea))
+    for ea in idc.Segments():
+        fs = idc.Functions(idc.SegStart(ea), idc.SegEnd(ea))
         for f in fs:
             out.write('("%s" 0x%x 0x%x)\n' % (
                 func_name_propagate_thunk(f),
-                GetFunctionAttr(f, FUNCATTR_START),
-                GetFunctionAttr(f, FUNCATTR_END)))
+                idc.GetFunctionAttr(f, idc.FUNCATTR_START),
+                idc.GetFunctionAttr(f, idc.FUNCATTR_END)))
 
 
-def dump_c_header(out):
-    """Dump type information as a C header."""
-    def local_type_info():
-        class my_sink(idaapi.text_sink_t):
-            def __init__(self):
-                try:
-                    idaapi.text_sink_t.__init__(self)
-                except AttributeError:
-                    pass  # Older IDA versions keep the text_sink_t abstract
-                self.text = []
-
-            def _print(self, thing):
-                self.text.append(thing)
-                return 0
-
-        sink = my_sink()
-
-        idaapi.print_decls(sink, idaapi.cvar.idati, [],
-                           idaapi.PDF_INCL_DEPS | idaapi.PDF_DEF_FWD)
-        return sink.text
-
-    def function_sigs():
-        import idautils
-        f_types = []
-        for ea in idautils.Functions():
-            ft = idaapi.print_type(ea, True)
-            if ft is not None:
-                f_types.append(ft + ';')
-        return list(set(f_types))  # Set, since sometimes, IDA gives repeats
-
-    def replacer(regex, replacement):
-        import re
-        r = re.compile(regex)
-        return lambda s: r.sub(replacement, s)
-
-    pp_decls = replacer(r'(struct|enum|union) ([^{} ]*);',
-                        r'\1 \2; typedef \1 \2 \2;')
-    pp_unsigned = replacer(r'unsigned __int(8|16|32|64)',
-                           r'uint\1_t')
-    pp_signed = replacer(r'(signed )?__int(8|16|32|64)',
-                         r'int\2_t')
-    pp_annotations = replacer(r'__(cdecl|noreturn)', r'__attribute__((\1))')
-    pp_wd = lambda s: (
-        replacer(r'_QWORD', r'int64_t')(
-            replacer(r'_DWORD', r'int32_t')(
-                replacer(r'_WORD', r'int16_t')(
-                    replacer(r'_BYTE', r'int8_t')(s)))))
-
-    def preprocess(line):
-        line = pp_decls(line)
-        line = pp_unsigned(line)  # Must happen before signed
-        line = pp_signed(line)
-        line = pp_annotations(line)
-        line = pp_wd(line)
-        return line
-
-    for line in local_type_info() + function_sigs():
-        line = preprocess(line)
-        out.write(line + '\n')
+@service.provider('types')
+def output_types(out):
+    """Dump type information."""
+    for line in local_types() + prototypes():
+        out.write(rewriter.translate(line) + '\n')
 
 
-def dump_brancher_info(output_filename):
-    """Dump information for BAP's brancher into output_filename."""
-    from idautils import CodeRefsFrom
+@service.provider('brancher')
+def output_branches(out):
+    """Dump static successors for each instruction """
+    for addr in addresses():
+        succs = Succs(addr)
+        if succs.jmps:
+            out.write('{}\n'.format(succs.dumps))
 
-    idc.Wait()
 
-    def dest(ea, flow):  # flow denotes whether normal flow is also taken
-        return set(CodeRefsFrom(ea, flow))
+class Printer(idaapi.text_sink_t):
+    def __init__(self):
+        try:
+            idaapi.text_sink_t.__init__(self)
+        except AttributeError:
+            pass  # Older IDA versions keep the text_sink_t abstract
+        self.lines = []
 
-    def pp(l):
-        return ' '.join('0x%x' % e for e in l)
+    def _print(self, thing):
+        self.lines.append(thing)
+        return 0
 
-    with open(output_filename, 'w+') as out:
-        for ea in all_valid_ea():
-            branch_dests = dest(ea, False)
-            if len(branch_dests) > 0:
-                out.write('(0x%x (%s) (%s))\n' % (
-                    ea,
-                    pp(dest(ea, True) - branch_dests),
-                    pp(branch_dests)
-                ))
+
+def local_types():
+    printer = Printer()
+    idaapi.print_decls(printer, idaapi.cvar.idati, [],
+                       idaapi.PDF_INCL_DEPS | idaapi.PDF_DEF_FWD)
+    return printer.lines
+
+
+def prototypes():
+    types = set()
+    for ea in idautils.Functions():
+        proto = idaapi.print_type(ea, True)
+        if proto:
+            types.append(proto + ';')
+    return list(types)
+
+
+def Succs(object):
+    def __init__(self, addr):
+        self.addr = addr
+        self.dests = set(idautils.CodeRefsFrom(addr, True))
+        self.jmps = set(idautils.CodeRefsFrom(addr, False))
+        falls = self.succs - self.dests
+        self.fall = falls[0] if falls else None
+
+    def dumps(self):
+        return ''.join([
+            '({:#x} '.format(self.addr),
+            sexps(self.dests),
+            ' {:#x})'.format(self.fall) if self.fall else ' )'
+        ])
+
+
+def sexps(addrs):
+    sexp = ['(']
+    for addr in addrs:
+        sexp.append('{:#x}'.format(addr))
+    sexp.append(')')
+    return ' '.join(sexp)

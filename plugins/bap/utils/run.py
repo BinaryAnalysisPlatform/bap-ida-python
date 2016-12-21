@@ -187,7 +187,7 @@ class BapIda(Bap):
     def _setup_symbols(self):
         "pass symbol information from IDA to BAP"
         with self.tmpfile("sym") as out:
-            ida.dump_symbol_info(out)
+            ida.output_symbols(out)
             self.args += [
                 "--read-symbols-from", out.name,
                 "--symbolizer=file",
@@ -202,7 +202,7 @@ class BapIda(Bap):
         # Will leave it as it is until issue #588 is
         # resolved in the upstream
         with self.tmpfile("h") as out:
-            ida.dump_c_header(out)
+            ida.output_types(out)
             subprocess.call(bap, [
                 '--api-add', 'c:"{0}"'.format(out.name),
             ])

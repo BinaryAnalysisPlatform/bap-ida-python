@@ -155,6 +155,13 @@ def parse(comment):
     return result
 
 
+def is_valid(comm):
+    try:
+        return comm.startswith('BAP:') and parse(comm)
+    except SyntaxError:
+            return False
+
+
 def dumps(comm):
     """
     Dump dictionary into a comment string.

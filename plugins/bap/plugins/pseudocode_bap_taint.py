@@ -4,6 +4,12 @@ Hex-Rays Plugin to propagate taint information to Pseudocode View.
 Requires BAP_Taint plugin, and installs callbacks into it.
 """
 
+import idc
+import idaapi
+
+from bap.utils import abstract_ida_plugins, ida, hexrays
+from bap.plugins.bap_taint import BapTaint
+
 bap_color = {
     'black':   0x000000,
     'red':     0xCCCCFF,
@@ -15,11 +21,6 @@ bap_color = {
     'white':   0xFFFFFF,
     'gray':    0xEAEAEA,
 }
-
-from bap.utils import abstract_ida_plugins, ida
-from bap.plugins.bap_taint import BapTaint
-
-import idc
 
 
 class Pseudocode_BAP_Taint(abstract_ida_plugins.SimpleLine_Modifier_Hexrays):
@@ -78,7 +79,7 @@ class Pseudocode_BAP_Taint(abstract_ida_plugins.SimpleLine_Modifier_Hexrays):
 
                 def autocolorize_callback(data):
                     ea = data['ea']
-                    cfunc = ida.cfunc_from_ea(ea)
+                    cfunc = hexrays.find_cfunc(ea)
                     if cfunc is None:
                         return
                     self.run_over_cfunc(cfunc)

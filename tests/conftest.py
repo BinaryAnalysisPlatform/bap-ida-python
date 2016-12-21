@@ -1,12 +1,13 @@
 import sys
 import subprocess
-from time import sleep, time as current_time
+from time import sleep
 
 import pytest
 
 
 sys.modules['idaapi'] = __import__('mockidaapi')
 sys.modules['idc'] = __import__('mockidc')
+sys.modules['idautils'] = __import__('mockidautils')
 
 
 @pytest.fixture
@@ -20,7 +21,7 @@ def idapatch(monkeypatch):
 @pytest.fixture
 def addresses(monkeypatch):
     addresses = (0xDEADBEAF, 0xDEADBEEF)
-    monkeypatch.setattr('bap.utils.ida.all_valid_ea', lambda: addresses)
+    monkeypatch.setattr('bap.utils.ida.addresses', lambda: addresses)
     return addresses
 
 
@@ -34,7 +35,16 @@ def comments(idapatch):
         'get_cmt': lambda ea, off: cmts.get(ea),
         'set_cmt': set_cmt
     })
-    return cmts
+    yield cmts
+
+
+@pytest.fixture(scope='session')
+def load():
+    def load(module):
+        plugin = module.PLUGIN_ENTRY()
+        plugin.init()
+        return plugin
+    return load
 
 
 @pytest.fixture(params=['yes', 'no', 'cancel'])
@@ -256,5 +266,5 @@ def bapida(idapatch, popenpatch, monkeypatch, idadir):
         'SetStatus': ida.set_status,
     })
     popenpatch(run_bap)
-    monkeypatch.setattr('bap.utils.ida.dump_symbol_info', lambda out: None)
+    monkeypatch.setattr('bap.utils.ida.output_symbols', lambda out: None)
     return (bap, ida)

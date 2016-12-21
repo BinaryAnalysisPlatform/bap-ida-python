@@ -35,7 +35,7 @@ class PseudocodeLineWidget(object):
                        and not anchor.is_blkcmt_anchor():
                         address = self.parent.treeitems.at(addr_tag).ea
                         if address != idaapi.BADADDR:
-                            addresses.append(address)
+                            addresses.add(address)
                 line = line[skipcode_index:]  # Skip the colorcodes
         return addresses
 

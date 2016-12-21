@@ -13,21 +13,24 @@ Comment Format:
     Comments in the Text/Graph Views are added using a key-value storage
     with the format (BAP (k1 v1) (k2 v2) ...)
 """
-import idautils
+import idaapi
+import idc
+
 from bap.utils.run import BapIda
+
 
 class BapScripter(BapIda):
 
     def __init__(self, user_args, attrs):
-        super(BapScripter,self).__init__()
-        if attrs != []:
+        super(BapScripter, self).__init__()
+        if attrs:
             self.action = 'extracting ' + ','.join(attrs)
         else:
             self.action = 'running bap ' + user_args
         self.script = self.tmpfile('py')
         self.args += user_args.split(' ')
-        self.args.append('--emit-ida-script')
         self.args += [
+            '--emit-ida-script',
             '--emit-ida-script-file', self.script.name
         ]
         self.args += [
@@ -37,10 +40,11 @@ class BapScripter(BapIda):
 
 
 # perfectly random numbers
-ARGS_HISTORY=324312
-ATTR_HISTORY=234345
+ARGS_HISTORY = 324312
+ATTR_HISTORY = 234345
 
-class BAP_BIR_Attr(idaapi.plugin_t):
+
+class BapBirAttr(idaapi.plugin_t):
     """
     Plugin to get BIR attributes from arbitrary BAP executions.
 
@@ -56,8 +60,8 @@ class BAP_BIR_Attr(idaapi.plugin_t):
 
     recipes = {}
 
-    def _do_callbacks(self,ea):
-        for callback in BAP_BIR_Attr._callbacks:
+    def _do_callbacks(self, ea):
+        for callback in self._callbacks:
             callback({'ea': ea})
 
     def run(self, arg):
@@ -68,27 +72,28 @@ class BAP_BIR_Attr(idaapi.plugin_t):
         address at the location pointed to by the cursor.
         """
 
-        args_msg  = "Arguments that will be passed to `bap'"
+        args_msg = "Arguments that will be passed to `bap'"
 
         args = idaapi.askstr(ARGS_HISTORY, '--passes=', args_msg)
         if args is None:
             return
-        attr_msg  = "A comma separated list of attributes,\n"
+        attr_msg = "A comma separated list of attributes,\n"
         attr_msg += "that should be propagated to comments"
-        attr_def = BAP_BIR_Attr.recipes.get(args, '')
+        attr_def = self.recipes.get(args, '')
         attr = idaapi.askstr(ATTR_HISTORY, attr_def, attr_msg)
 
         if attr is None:
             return
 
         # store a choice of attributes for the given set of arguments
-        BAP_BIR_Attr.recipes[args] = attr
+        # TODO: store recipes in IDA's database
+        self.recipes[args] = attr
         ea = idc.ScreenEA()
         attrs = []
         if attr != '':
             attrs = attr.split(',')
         analysis = BapScripter(args, attrs)
-        analysis.on_finish(lambda bap: self.load_script(bap,ea))
+        analysis.on_finish(lambda bap: self.load_script(bap, ea))
         analysis.run()
 
     def load_script(self, bap, ea):
@@ -100,8 +105,6 @@ class BAP_BIR_Attr(idaapi.plugin_t):
         idaapi.refresh_idaview_anyway()
         idc.SetStatus(idc.IDA_STATUS_READY)
 
-
-
     def init(self):
         """Initialize Plugin."""
         return idaapi.PLUGIN_KEEP
@@ -109,7 +112,6 @@ class BAP_BIR_Attr(idaapi.plugin_t):
     def term(self):
         """Terminate Plugin."""
         pass
-
 
     @classmethod
     def install_callback(cls, callback_fn):
@@ -122,9 +124,9 @@ class BAP_BIR_Attr(idaapi.plugin_t):
             'ea': The value of EA at point where user propagated taint from.
         """
         idc.Message('a callback is installed\n')
-        cls._callbacks[ptr_or_reg].append(callback_fn)
+        cls._callbacks.append(callback_fn)
 
 
 def PLUGIN_ENTRY():
     """Install BAP_BIR_Attr upon entry."""
-    return BAP_BIR_Attr()
+    return BapBirAttr()

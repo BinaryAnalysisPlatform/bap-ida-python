@@ -2,7 +2,6 @@
 
 class CommentHandlers(object):
     def __init__(self):
-        print('creating comment handlers')
         self.handlers = []
         self.comments = {}
 

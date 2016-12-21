@@ -104,7 +104,6 @@ class Bap(object):
         "creates a new temporary files in the self.tmpdir"
         if self.tmpdir is None:
             self.tmpdir = tempfile.mkdtemp(prefix="bap")
-
         tmp = tempfile.NamedTemporaryFile(
             delete=False,
             prefix='bap-ida',
@@ -175,12 +174,10 @@ class BapIda(Bap):
                 "Previous instances of BAP didn't finish yet.\
                 Do you really want to start a new one?".
                 format(len(BapIda.instances)))
-
             if answer == idaapi.ASKBTN_YES:
                 self._do_run()
         else:
             self._do_run()
-
         idc.Message("BAP> total number of running instances: {0}\n".
                     format(len(BapIda.instances)))
 
@@ -312,63 +309,59 @@ class BapNotFound(BapIdaError):
         return 'Unable to detect bap executable '
 
 
-BAP_FINDERS = []
+class BapFinder(object):
+    def __init__(self):
+        self.finders = []
+
+    def register(self, func):
+        self.finders.append(func)
+
+    def finder(self, func):
+        self.register(func)
+        return func
+
+    def find(self):
+        path = None
+        for find in self.finders:
+            path = find()
+            break
+        return path
+
+
+bap = BapFinder()
 
 
 def check_and_configure_bap():
-    """
-    Check if bap_executable_path is set in the config; ask user if necessary.
-
-    Automagically also tries a bunch of strategies to find `bap` if it can,
-    and uses this to populate the default path in the popup, to make the
-    user's life easier. :)
-
-    Also, this specifically enables the BAP API option in the config if it is
-    unspecified.
-    """
-    if config.get('bap_executable_path') is not None:
-        return
-
-    bap_path = ''
-
-    for find in BAP_FINDERS:
-        path = find()
-        if path:
-            bap_path = path
-            break
-
-    # always ask a user to confirm the path that was found using heuristics
-    bap_path = ask_user(bap_path)
-
-    if bap_path and len(bap_path) > 0:
-        config.set('bap_executable_path', bap_path)
+    """Ensures that bap location is known."""
+    if not config.get('bap_executable_path'):
+        path = ask_user(bap.find())
+        if path and len(path) > 0:
+            config.set('bap_executable_path', path)
 
 
-def preadline(cmd):
-    try:
-        res = subprocess.check_output(cmd, universal_newlines=True)
-        return res.strip()
-    except (OSError, subprocess.CalledProcessError):
-        return None
-
-
-def system_path():
+@bap.finder
+def system():
     return preadline(['which', 'bap'])
 
 
-def opam_path():
+@bap.finder
+def opam():
     try:
         cmd = ['opam', 'config', 'var', 'bap:bin']
         res = preadline(cmd).strip()
-        return os.path.join(res, 'bap')
+        if 'undefined' not in res:
+            return os.path.join(res, 'bap')
+        else:
+            return None
     except:
         return None
 
 
-def ask_user(default_path):
-    def confirm(msg):
-        return idaapi.askyn_c(idaapi.ASKBTN_YES, msg) == idaapi.ASKBTN_YES
+def confirm(msg):
+    return idaapi.askyn_c(idaapi.ASKBTN_YES, msg) == idaapi.ASKBTN_YES
 
+
+def ask_user(default_path):
     while True:
         bap_path = idaapi.askfile_c(False, default_path, 'Path to bap')
         if bap_path is None:
@@ -385,5 +378,9 @@ def ask_user(default_path):
         return bap_path
 
 
-BAP_FINDERS.append(system_path)
-BAP_FINDERS.append(opam_path)
+def preadline(cmd):
+    try:
+        res = subprocess.check_output(cmd, universal_newlines=True)
+        return res.strip()
+    except (OSError, subprocess.CalledProcessError):
+        return None

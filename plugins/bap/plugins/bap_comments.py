@@ -61,18 +61,10 @@ class BapComment(idaapi.plugin_t):
     def update(self, ea, key, value):
         """Add key:value to comm string at EA."""
         cmt = idaapi.get_cmt(ea, 0)
-        comm = {}
-        if cmt:
-            comm = bap_comment.parse(cmt)
-            if comm is None:
-                comm = {}
-        if not value or value == '()':
-            comm.setdefault(key, [])
-        else:
-            if key in comm:
-                comm[key].append(value)
-            else:
-                comm[key] = [value]
+        comm = cmt and bap_comment.parse(cmt) or {}
+        values = comm.setdefault(key, [])
+        if value and value != '()' and value not in values:
+            values.append(value)
         idaapi.set_cmt(ea, bap_comment.dumps(comm), 0)
 
 

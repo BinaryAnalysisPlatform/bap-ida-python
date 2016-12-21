@@ -15,9 +15,9 @@ rewriter = Rewriter()
 
 def addresses():
     """Generate all mapped addresses."""
-    for s in idc.Segments():
-        ea = idc.SegStart(s)
-        while ea < idc.SegEnd(s):
+    for s in idautils.Segments():
+        ea = idautils.SegStart(s)
+        while ea < idautils.SegEnd(s):
             yield ea
             ea = idaapi.nextaddr(ea)
 
@@ -67,8 +67,8 @@ def output_symbols(out):
             # Fallback to non-propagated name for weird times that IDA gives
             #     a 0 length name, or finds a longer import name
 
-    for ea in idc.Segments():
-        fs = idc.Functions(idc.SegStart(ea), idc.SegEnd(ea))
+    for ea in idautils.Segments():
+        fs = idautils.Functions(idc.SegStart(ea), idc.SegEnd(ea))
         for f in fs:
             out.write('("%s" 0x%x 0x%x)\n' % (
                 func_name_propagate_thunk(f),
@@ -90,6 +90,10 @@ def output_branches(out):
         succs = Succs(addr)
         if succs.jmps:
             out.write('{}\n'.format(succs.dumps))
+
+
+def set_color(addr, color):
+    idc.SetColor(addr, idc.CIC_ITEM, color)
 
 
 class Printer(idaapi.text_sink_t):

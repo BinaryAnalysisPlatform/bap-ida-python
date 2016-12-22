@@ -1,42 +1,43 @@
 """Hex-Rays Plugin to propagate comments to Pseudocode View."""
 
-from bap.utils import abstract_ida_plugins
-from bap.utils import bap_comment, sexpr
+import idc
+import idaapi
+
+from bap.utils import hexrays
+from bap.utils import bap_comment
 
 
-class Pseudocode_BAP_Comment(abstract_ida_plugins.SimpleLine_Modifier_Hexrays):
+COLOR_START = '\x01\x0c // \x01\x0c'
+COLOR_END = '\x02\x0c\x02\x0c'
+
+
+def union(lhs, rhs):
+    for (key, rvalues) in rhs.items():
+        lvalues = lhs.setdefault(key, [])
+        for value in rvalues:
+            if value not in lvalues:
+                lvalues.append(value)
+
+
+class PseudocodeBapComment(hexrays.PseudocodeVisitor):
     """Propagate comments from Text/Graph view to Pseudocode view."""
+    flags = idaapi.PLUGIN_HIDE
+    comment = ""
+    help = "Propagate BAP comments to pseudocode view"
+    wanted_name = "BAP: <automatic-plugin>"
 
-    @classmethod
-    def _simpleline_modify(cls, cfunc, sl):
-        sl_dict = {}
-
-        for ea in set(cls.get_ea_list(cfunc, sl)):
-            ea_comm = GetCommentEx(ea, repeatable=0)
-            if ea_comm is None:
-                continue
-            ea_BAP_dict, _, _ = bap_comment.get_bap_comment(ea_comm)
-            for e in bap_comment.get_bap_list(ea_BAP_dict):
-                if isinstance(e, list):
-                    val_list = sl_dict.get(e[0], [])
-                    if len(e) >= 2:  # i.e. '(k v)' type
-                        if e[1:] not in val_list:
-                            val_list.append(e[1:])
-                    sl_dict[e[0]] = val_list
-
-        if len(sl_dict) > 0:
-            BAP_dict = ['BAP']
-            for k, v in sl_dict.items():
-                BAP_dict += [[k] + v]
-            sl.line += '\x01\x0c // \x01\x0c'  # start comment coloring
-            sl.line += sexpr.from_list(BAP_dict)
-            sl.line += '\x02\x0c\x02\x0c'  # stop comment coloring
-
-    comment = "BAP Comment on Pseudocode"
-    help = "BAP Comment on Pseudocode"
-    wanted_name = "BAP Comment on Pseudocode"
+    def visit_line(self, line):
+        comm = {}
+        for address in line.extract_addresses():
+            idacomm = idc.Comment(address)
+            newcomm = idacomm and bap_comment.parse(idacomm) or {}
+            union(comm, newcomm)
+        if comm:
+            line.widget.line += COLOR_START
+            line.widget.line += bap_comment.dumps(comm)
+            line.widget.line += COLOR_END
 
 
 def PLUGIN_ENTRY():
     """Install Pseudocode_BAP_Comment upon entry."""
-    return Pseudocode_BAP_Comment()
+    return PseudocodeBapComment()

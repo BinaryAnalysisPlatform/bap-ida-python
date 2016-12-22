@@ -13,117 +13,104 @@ Comment Format:
     Comments in the Text/Graph Views are added using a key-value storage
     with the format (BAP (k1 v1) (k2 v2) ...)
 """
-import idautils
+import idaapi
+import idc
+
+from bap.utils.run import BapIda
 
 
-class BAP_BIR_Attr(idaapi.plugin_t):
+class BapScripter(BapIda):
+
+    def __init__(self, user_args, attrs):
+        super(BapScripter, self).__init__()
+        if attrs:
+            self.action = 'extracting ' + ','.join(attrs)
+        else:
+            self.action = 'running bap ' + user_args
+        self.script = self.tmpfile('py')
+        self.args += user_args.split(' ')
+        self.args += [
+            '--emit-ida-script',
+            '--emit-ida-script-file', self.script.name
+        ]
+        self.args += [
+            '--emit-ida-script-attr='+attr.strip()
+            for attr in attrs
+        ]
+
+
+# perfectly random numbers
+ARGS_HISTORY = 324312
+ATTR_HISTORY = 234345
+
+
+class BapBirAttr(idaapi.plugin_t):
     """
     Plugin to get BIR attributes from arbitrary BAP executions.
 
     Also supports installation of callbacks using install_callback()
     """
+    flags = idaapi.PLUGIN_DRAW
+    comment = "Run BAP "
+    help = "Runs BAP and extracts data from the output"
+    wanted_name = "BAP: Run"
+    wanted_hotkey = "Shift-S"
 
     _callbacks = []
 
-    @classmethod
-    def _do_callbacks(cls):
-        data = {
-            'ea': idc.ScreenEA(),
-        }
-        for callback in cls._callbacks:
-            callback(data)
+    recipes = {}
 
-    @classmethod
-    def run_bap(cls):
+    def _do_callbacks(self, ea):
+        for callback in self._callbacks:
+            callback({'ea': ea})
+
+    def run(self, arg):
         """
         Ask user for BAP args to pass, BIR attributes to print; and run BAP.
 
         Allows users to also use {screen_ea} in the BAP args to get the
         address at the location pointed to by the cursor.
         """
-        import tempfile
-        from bap.utils.run import run_bap_with
 
-        args = {
-            'screen_ea': "0x{:X}".format(idc.ScreenEA()),
-            'ida_script_location': tempfile.mkstemp(suffix='.py',
-                                                    prefix='ida-bap-')[1],
-            'args_from_user': idaapi.askstr(0, '', 'Args to pass to BAP'),
-            'bir_attr': idaapi.askstr(0, 'comment',
-                                      'BIR Attributes (comma separated)')
-        }
+        args_msg = "Arguments that will be passed to `bap'"
 
-        if args['args_from_user'] is None:
-            args['args_from_user'] = ''
+        args = idaapi.askstr(ARGS_HISTORY, '--passes=', args_msg)
+        if args is None:
+            return
+        attr_msg = "A comma separated list of attributes,\n"
+        attr_msg += "that should be propagated to comments"
+        attr_def = self.recipes.get(args, '')
+        attr = idaapi.askstr(ATTR_HISTORY, attr_def, attr_msg)
 
-        if args['bir_attr'] is not None:
-            for attr in args['bir_attr'].split(','):
-                attr = attr.strip()  # For users who prefer "x, y, z" style
-                args['args_from_user'] += " --emit-ida-script-attr=" + attr
-            args['args_from_user'] += "\
-            --emit-ida-script-file={ida_script_location} \
-            --emit-ida-script \
-            ".format(**args)
-
-        idc.SetStatus(IDA_STATUS_WAITING)
-        idaapi.refresh_idaview_anyway()
-
-        run_bap_with(args['args_from_user'].format(**args))
-
-        idc.SetStatus(IDA_STATUS_READY)
-
-        idaapi.IDAPython_ExecScript(args['ida_script_location'], globals())
-
-        idc.Exec("rm -f \"{ida_script_location}\"".format(**args))  # Cleanup
-
-        idc.Refresh()  # Force the updated information to show up
-
-        cls._do_callbacks()
-
-    @classmethod
-    def clear_bap_comments(cls):
-        """Ask user for confirmation and then clear (BAP ..) comments."""
-        from bap.utils.bap_comment import get_bap_comment
-        from bap.utils.ida import all_valid_ea
-        from idaapi import ASKBTN_CANCEL, ASKBTN_YES
-
-        if idaapi.askyn_c(ASKBTN_CANCEL,
-                          "Delete all (BAP ..) comments?") != ASKBTN_YES:
+        if attr is None:
             return
 
-        for ea in all_valid_ea():
-            old_comm = idaapi.get_cmt(ea, 0)
-            if old_comm is None:
-                continue
-            _, start_loc, end_loc = get_bap_comment(old_comm)
-            new_comm = old_comm[:start_loc] + old_comm[end_loc:]
-            idaapi.set_cmt(ea, new_comm, 0)
+        # store a choice of attributes for the given set of arguments
+        # TODO: store recipes in IDA's database
+        self.recipes[args] = attr
+        ea = idc.ScreenEA()
+        attrs = []
+        if attr != '':
+            attrs = attr.split(',')
+        analysis = BapScripter(args, attrs)
+        analysis.on_finish(lambda bap: self.load_script(bap, ea))
+        analysis.run()
 
-        cls._do_callbacks()
-
-    flags = idaapi.PLUGIN_FIX
-    comment = "BAP BIR Attr Plugin"
-    help = "BAP BIR Attr Plugin"
-    wanted_name = "BAP BIR Attr Plugin"
-    wanted_hotkey = ""
+    def load_script(self, bap, ea):
+        idc.SetStatus(idc.IDA_STATUS_WORK)
+        idaapi.IDAPython_ExecScript(bap.script.name, globals())
+        self._do_callbacks(ea)
+        idc.Refresh()
+        # do we really need to call this?
+        idaapi.refresh_idaview_anyway()
+        idc.SetStatus(idc.IDA_STATUS_READY)
 
     def init(self):
         """Initialize Plugin."""
-        from bap.utils.ida import add_hotkey
-        add_hotkey("Shift-S", self.run_bap)
-        add_hotkey("Ctrl-Shift-S", self.clear_bap_comments)
         return idaapi.PLUGIN_KEEP
 
     def term(self):
         """Terminate Plugin."""
-        pass
-
-    def run(self, arg):
-        """
-        Run Plugin.
-
-        Ignored since keybindings are installed.
-        """
         pass
 
     @classmethod
@@ -136,9 +123,10 @@ class BAP_BIR_Attr(idaapi.plugin_t):
         Dict is guaranteed to get the following keys:
             'ea': The value of EA at point where user propagated taint from.
         """
-        cls._callbacks[ptr_or_reg].append(callback_fn)
+        idc.Message('a callback is installed\n')
+        cls._callbacks.append(callback_fn)
 
 
 def PLUGIN_ENTRY():
     """Install BAP_BIR_Attr upon entry."""
-    return BAP_BIR_Attr()
+    return BapBirAttr()

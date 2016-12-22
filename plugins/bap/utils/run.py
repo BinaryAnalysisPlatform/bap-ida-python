@@ -49,13 +49,16 @@ class Bap(object):
         - `fds` a list of opened filedescriptors to be closed on the exit
 
         """
-        self.tmpdir = None
+        self.tmpdir = tempfile.mkdtemp(prefix="bap")
         self.args = [bap, input_file]
         self.proc = None
         self.fds = []
         self.out = self.tmpfile("out")
         self.action = "running bap"
         self.closed = False
+        self.env = {'BAP_LOG_DIR': self.tmpdir}
+        if self.DEBUG:
+            self.env['BAP_DEBUG'] = 'yes'
 
     def run(self):
         "starts BAP process"
@@ -65,13 +68,11 @@ class Bap(object):
             self.args,
             stdout=self.out,
             stderr=subprocess.STDOUT,
-            env={
-                'BAP_LOG_DIR': self.tmpdir
-            })
+            env=self.env)
 
     def finished(self):
         "true if the process is no longer running"
-        return self.proc is not None and self.proc.poll() is not None
+        return self.proc and self.proc.poll() is not None
 
     def close(self):
         "terminate the process if needed and cleanup"
@@ -254,6 +255,8 @@ class BapIda(Bap):
         BapIda.instances.remove(self)
 
     def update(self):
+        if all(bap.finished() for bap in BapIda.instances):
+            idc.SetStatus(idc.IDA_STATUS_READY)
         if self.finished():
             if self.proc.returncode == 0:
                 self.run_handlers('instance_finished')
@@ -272,13 +275,6 @@ class BapIda(Bap):
             return -1
         else:
             self.run_handlers('instance_updated')
-            thinking = False
-            for bap in BapIda.instances:
-                if bap.finished():
-                    idc.SetStatus(idc.IDA_STATUS_THINKING)
-                    thinking = True
-            if not thinking:
-                idc.SetStatus(idc.IDA_STATUS_READY)
             return self.poll_interval_ms
 
     def cancel(self):

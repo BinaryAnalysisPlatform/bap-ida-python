@@ -163,8 +163,7 @@ def is_valid(comm):
 
 
 def dumps(comm):
-    """
-    Dump dictionary into a comment string.
+    """Dump dictionary into a comment string.
 
     The representation is parseable with the parse function.
     """
@@ -195,7 +194,13 @@ def quote(token):
     '"hello, world"'
     """
     if set(token) - set(WORDCHARS):
-        return '"{0}"'.format(token)
+        if "'" not in token:
+            return "'{}'".format(token)
+        elif '"' not in token:
+            return '"{}"'.format(token)
+        else:  # we ran out of quotes, so we need
+            return "'{}'".format(''.join('\\'+c if c == "'" else c
+                                         for c in token))
     else:
         return token
 

@@ -59,7 +59,7 @@ class BapComment(idaapi.plugin_t):
         pass
 
     def update(self, ea, key, value):
-        """Add key:value to comm string at EA."""
+        """Add key=values to comm string at EA."""
         cmt = idaapi.get_cmt(ea, 0)
         comm = cmt and bap_comment.parse(cmt) or {}
         values = comm.setdefault(key, [])

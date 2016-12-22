@@ -4,10 +4,11 @@ from __future__ import print_function
 from bap.utils.run import BapIda
 import re
 
-import idaapi # pylint: disable=import-error
+import idaapi  # pylint: disable=import-error
+
 
 class BapViews(idaapi.Choose2):
-    #pylint: disable=invalid-name,missing-docstring,no-self-use
+    # pylint: disable=invalid-name,missing-docstring,no-self-use
     def __init__(self, views):
         idaapi.Choose2.__init__(self, 'Choose BAP view', [
             ['PID', 4],
@@ -31,9 +32,10 @@ class BapViews(idaapi.Choose2):
     def OnGetSize(self):
         return len(self.views)
 
+
 class View(idaapi.simplecustviewer_t):
-    #pylint: disable=invalid-name,missing-docstring,no-self-use
-    #pylint: disable=super-on-old-class,no-member
+    # pylint: disable=invalid-name,missing-docstring,no-self-use
+    # pylint: disable=super-on-old-class,no-member
     def __init__(self, caption, instance, on_close=None):
         super(View, self).__init__()
         self.Create(caption)
@@ -69,7 +71,6 @@ class BapView(idaapi.plugin_t):
     def __init__(self):
         self.views = {}
 
-
     def create_view(self, bap):
         "creates a new view"
         pid = bap.proc.pid
@@ -78,7 +79,7 @@ class BapView(idaapi.plugin_t):
         view.instance = bap
         curr = idaapi.get_current_tform()
         self.views[pid] = view
-        view.Show() #pylint: disable=no-member
+        view.Show()  # pylint: disable=no-member
         idaapi.switchto_tform(curr, True)
 
     def delete_view(self, pid):
@@ -94,15 +95,16 @@ class BapView(idaapi.plugin_t):
     def finished(self, bap):
         "final update"
         self.update_view(bap)
-        view = self.views[bap.proc.pid]
-        if bap.proc.returncode > 0:
-            view.Show() #pylint: disable=no-member
+        if bap.proc.pid in self.views:  # because a user could close the view
+            if bap.proc.returncode > 0:
+                self.views[bap.proc.pid].Show()  # pylint: disable=no-member
 
     def init(self):
         """Initialize BAP view to load whenever hotkey is pressed."""
         BapIda.observers['instance_created'].append(self.create_view)
         BapIda.observers['instance_updated'].append(self.update_view)
         BapIda.observers['instance_finished'].append(self.finished)
+        BapIda.observers['instance_failed'].append(self.finished)
         return idaapi.PLUGIN_KEEP
 
     def term(self):
@@ -113,15 +115,15 @@ class BapView(idaapi.plugin_t):
     def show_view(self):
         "Switch to one of the BAP views"
         chooser = BapViews(self.views)
-        choice = chooser.Show(modal=True) #pylint: disable=no-member
+        choice = chooser.Show(modal=True)  # pylint: disable=no-member
         if choice >= 0:
             view = self.views[self.views.keys()[choice]]
             view.Show()
 
-
-    def run(self, arg): #pylint: disable=unused-argument
+    def run(self, arg):  # pylint: disable=unused-argument
         "invokes the plugin"
         self.show_view()
+
 
 def recolorize(line):
     """fix ansi colors"""

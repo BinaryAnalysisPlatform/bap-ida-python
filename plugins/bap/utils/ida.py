@@ -16,8 +16,8 @@ rewriter = Rewriter()
 def addresses():
     """Generate all mapped addresses."""
     for s in idautils.Segments():
-        ea = idautils.SegStart(s)
-        while ea < idautils.SegEnd(s):
+        ea = idc.SegStart(s)
+        while ea < idc.SegEnd(s):
             yield ea
             ea = idaapi.nextaddr(ea)
 

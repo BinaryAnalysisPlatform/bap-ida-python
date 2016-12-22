@@ -16,12 +16,12 @@ class BapClearComments(idaapi.plugin_t):
         """Ask user for confirmation and then clear (BAP ..) comments."""
 
         if idaapi.askyn_c(ASKBTN_YES,
-                          "Delete all (BAP ..) comments?") != ASKBTN_YES:
+                          "Delete all `BAP: ..` comments?") != ASKBTN_YES:
             return
 
         for ea in ida.addresses():  # TODO: store actually commented addresses
             comm = idaapi.get_cmt(ea, 0)
-            if bap_comment.parse(comm):
+            if comm and comm.startswith('BAP:'):
                 idaapi.set_cmt(ea, '', 0)
 
     def init(self):

@@ -36,3 +36,9 @@ def test_roundup():
         'd': ['strange \\ things'],
     }
     assert parse(dumps(parse(dumps(comm)))) == comm
+
+
+def test_quotation():
+    data = 'BAP: chars=\'{"a", "b", "c"}\''
+    assert parse(data) == {'chars': ['{"a", "b", "c"}']}
+    assert parse(data) == parse(dumps(parse(data)))

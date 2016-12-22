@@ -24,7 +24,7 @@ class Service(object):
             raise ServiceIsNotRegistered(service)
 
         idc.Wait()
-        with open(output) as out:
+        with open(output, 'w') as out:
             self.services[service](out)
         idc.Exit(0)
 

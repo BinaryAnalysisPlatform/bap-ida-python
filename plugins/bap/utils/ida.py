@@ -136,8 +136,8 @@ def Succs(object):
     def dumps(self):
         return ''.join([
             '({:#x} '.format(self.addr),
-            sexps(self.dests),
-            ' {:#x})'.format(self.fall) if self.fall else ' )'
+            ' ({:#x}) '.format(self.fall) if self.fall else '()',
+            '{})'.format(sexps(self.dests))
         ])
 
 

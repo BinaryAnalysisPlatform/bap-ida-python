@@ -8,6 +8,7 @@ PLUGIN_HIDE = NotImplemented
 PLUGIN_KEEP = NotImplemented
 class plugin_t(object): NotImplemented
 class text_sink_t(object): NotImplemented
+class Choose2(object): NotImplemented
 def idadir(sub): NotImplemented
 def get_cmt(ea, off): NotImplemented
 def set_cmt(ea, off): NotImplemented

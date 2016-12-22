@@ -130,6 +130,7 @@ def recolorize(line):
     ansi_escape = re.compile(r'\x1b[^m]*m([^\x1b]*)\x1b[^m]*m')
     return ansi_escape.sub('\1\x22\\1\2\x22', line)
 
-def PLUGIN_ENTRY(): #pylint: disable=invalid-name
+
+def PLUGIN_ENTRY():  # pylint: disable=invalid-name
     """Install BAP_View upon entry."""
     return BapView()

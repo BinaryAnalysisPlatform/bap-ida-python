@@ -1,59 +1,60 @@
 import idaapi
 import idc
+
 from bap.utils import bap_comment, ida
 
 
-class CommentIterator(object):
+class Attributes(idaapi.Choose2):
+    def __init__(self, comms):
+        idaapi.Choose2.__init__(self, 'Select an attribute', [
+            ['name', 8],
+            ['addr', 8],
+            ['data', 64]
+        ])
+        self.comms = [
+            [name, '{:#x}'.format(addr), ' '.join(data)]
+            for (name, addr, data) in comms
+        ]
 
-    def __init__(self, storage):
-        self.storage = storage
-        self.index = idc.GetFirstIndex(idc.AR_STR, storage)
+    def OnClose(self):
+        pass
 
-    def __iter__(self):
-        return self
+    def OnGetSize(self):
+        return len(self.comms)
 
-    def next(self):
-        value = idc.GetArrayElement(idc.AR_STR, self.storage)
-        if value == 0:
-            raise StopIteration()
-        else:
-            self.index = idc.GetNextIndex(idc.AR_STR, self.storage, self.index)
-            return value
-
-
-class CommentStorage(object):
-
-    def __init__(self):
-        name = 'bap-comments'
-        existing = idc.GetArrayId(name)
-        if existing < 0:
-            self.storage = idc.CreateArray(name)
-        else:
-            self.storage = existing
-
-    def __iter__(self):
-        return CommentIterator(self.storage)
-
-    def __len__(self):
-        n = 0
-        for elt in self:
-            n += 1
-        return n
+    def OnGetLine(self, n):
+        return self.comms[n]
 
 
 class BapComment(idaapi.plugin_t):
-    flags = idaapi.PLUGIN_HIDE
+    flags = 0
     help = 'propagate comments to IDA Views'
     comment = ''
-    wanted_name = 'BAP: Comment code'
-    wanted_hotkey = ''
+    wanted_name = 'BAP: View BAP Attributes'
+    wanted_hotkey = 'Shift-B'
+
+    def __init__(self):
+        self.comms = {}
 
     def init(self):
         ida.comment.register_handler(self.update)
         return idaapi.PLUGIN_KEEP
 
     def run(self, arg):
-        pass
+        comms = {}
+        for addr in ida.addresses():
+            comm = idaapi.get_cmt(addr, 0)
+            if comm:
+                parsed = bap_comment.parse(comm)
+                if parsed:
+                    for (name, data) in parsed.items():
+                        comms[(addr, name)] = data
+        comms = [(name, addr, data)
+                 for ((addr, name), data) in comms.items()]
+        attrs = Attributes(comms)
+        choice = attrs.Show(modal=True)
+        if choice >= 0:
+            idc.Jump(comms[choice][1])
 
     def term(self):
         pass

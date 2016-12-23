@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/BinaryAnalysisPlatform/bap.svg?branch=master)](https://travis-ci.org/BinaryAnalysisPlatform/bap-ida-python)
+
 BAP IDA Python
 ==============
 

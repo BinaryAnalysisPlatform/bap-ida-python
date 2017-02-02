@@ -18,7 +18,7 @@ def test_dumps():
     assert 'BAP:' in dumps({'hello': []})
     assert dumps({'hello': ['cruel', 'world'], 'nice': [], 'thing': []}) == \
         'BAP: nice,thing hello=cruel,world'
-    assert dumps({'hello': ["world\'"]}) == 'BAP: hello="world\'"'
+    assert dumps({'hello': ["world'"]}) == 'BAP: hello="world\'"'
 
 
 def test_is_valid():
@@ -39,6 +39,11 @@ def test_roundup():
 
 
 def test_quotation():
-    data = 'BAP: chars=\'{"a", "b", "c"}\''
+    data = 'BAP: chars="{\\\"a\\\", \\\"b\\\", \\\"c\\\"}"'
     assert parse(data) == {'chars': ['{"a", "b", "c"}']}
     assert parse(data) == parse(dumps(parse(data)))
+
+
+def test_single_quote():
+    data = 'BAP: key="{can\\\'t do}"'
+    assert parse(data) == {'key': ["{can\\'t do}"]}

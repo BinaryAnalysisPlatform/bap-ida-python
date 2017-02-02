@@ -45,10 +45,14 @@ class BapComment(idaapi.plugin_t):
         for addr in ida.addresses():
             comm = idaapi.get_cmt(addr, 0)
             if comm:
-                parsed = bap_comment.parse(comm)
-                if parsed:
-                    for (name, data) in parsed.items():
-                        comms[(addr, name)] = data
+                try:
+                    parsed = bap_comment.parse(comm)
+                    if parsed:
+                        for (name, data) in parsed.items():
+                            comms[(addr, name)] = data
+                except:
+                    idc.Message("BAP> failed to parse string {0}\n{1}".
+                                format(comm, str(sys.exc_info()[1])))
         comms = [(name, addr, data)
                  for ((addr, name), data) in comms.items()]
         attrs = Attributes(comms)

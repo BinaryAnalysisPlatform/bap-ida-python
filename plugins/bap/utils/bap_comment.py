@@ -11,7 +11,7 @@ with an example:
 Basically, the comment string includes an arbitrary amount of
 key=value pairs. If a value contains whitespaces, punctuation or any
 non-word character, then it should be delimited with double quotes. If
-a value contains quote character, then it should be escaped with the
+a value contains a quote character, then it should be escaped with the
 backslash character (the backslash character can escape
 itself). Properties that doesn't have values (or basically has a
 property of a unit type, so called boolean properties) are represented
@@ -96,15 +96,17 @@ from shlex import shlex
 WORDCHARS = ''.join(['-:', string.ascii_letters, string.digits])
 
 
-def parse(comment):
+def parse(comment, debug=0):
     """ Parse comment string.
 
     Returns a dictionary that maps properties to their values.
     Raises SyntaxError if the comment is syntactically incorrect.
     Returns None if comment doesn't start with the `BAP:` prefix.
     """
-    lexer = shlex(comment)
+    lexer = shlex(comment, posix=True)
     lexer.wordchars = WORDCHARS
+    lexer.debug = debug
+    lexer.quotes = '"'
     result = {}
     key = ''
     values = []
@@ -193,14 +195,9 @@ def quote(token):
     >>> quote('hello, world')
     '"hello, world"'
     """
-    if set(token) - set(WORDCHARS):
-        if "'" not in token:
-            return "'{}'".format(token)
-        elif '"' not in token:
-            return '"{}"'.format(token)
-        else:  # we ran out of quotes, so we need
-            return "'{}'".format(''.join('\\'+c if c == "'" else c
-                                         for c in token))
+    if not token.startswith('"') and set(token) - set(WORDCHARS):
+        return '"{}"'.format(''.join('\\'+c if c == '"' else c
+                                     for c in token))
     else:
         return token
 

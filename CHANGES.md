@@ -1,4 +1,9 @@
-0.2.0
+1.2.0
+-----
+* fixes IDA loader
+* more robust comment parser
+
+1.1.0
 -----
 * call BAP asynchronously (without blocking IDA)
 * run several instances of BAP in parallel

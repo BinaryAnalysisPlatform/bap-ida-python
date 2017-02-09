@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(
     name='bap-ida-python',
-    version='1.1.0',
+    version='1.2.0',
     description='BAP IDA Plugin',
     author='BAP Team',
     url='https://github.com/BinaryAnalysisPlatform/bap-ida-python',

@@ -27,9 +27,9 @@ def output_segments(out):
     """Dump binary segmentation."""
     info = idaapi.get_inf_structure()
     size = "r32" if info.is_32bit else "r64"
-    out.write('(', info.get_proc_name()[1], ' ', size, ' (')
+    out.writelines(('(', info.get_proc_name()[1], ' ', size, ' ('))
     for seg in idautils.Segments():
-        out.write("\n({} {} {:d} ({:#x} {d}))".format(
+        out.write("\n({} {} {:d} ({:#x} {:d}))".format(
             idaapi.get_segm_name(seg),
             "code" if idaapi.segtype(seg) == idaapi.SEG_CODE else "data",
             idaapi.get_fileregion_offset(seg),

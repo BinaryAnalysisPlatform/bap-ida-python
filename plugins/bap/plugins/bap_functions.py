@@ -10,12 +10,13 @@ Keybindings:
 import idaapi
 import idc
 
+from heapq import heappush, heappop
 from bap.utils.run import BapIda
 
 
 class FunctionFinder(BapIda):
     def __init__(self):
-        super(FunctionFinder, self).__init__()
+        super(FunctionFinder, self).__init__(symbols=False)
         self.action = 'looking for function starts'
         self.syms = self.tmpfile('syms', mode='r')
         self.args += [
@@ -23,9 +24,18 @@ class FunctionFinder(BapIda):
             '--dump', 'symbols:{0}'.format(self.syms.name)
         ]
 
+        # we can be a little bit more promiscuous since IDA will ignore
+        # function starts that occur in the middle of a function
+        if 'byteweight' in self.plugins and not \
+           '--no-byteweight' in self.args:
+            self.args += [
+                '--byteweight-threshold', '0.5',
+                '--byteweight-length', '4',
+            ]
+
 
 class BAP_Functions(idaapi.plugin_t):
-    """Plugin to get functions from BAP and mark them in IDA."""
+    """Uses BAP to find missed functions"""
 
     flags = idaapi.PLUGIN_FIX
     comment = "BAP Functions Plugin"
@@ -40,15 +50,13 @@ class BAP_Functions(idaapi.plugin_t):
         analysis.run()
 
     def add_starts(self, bap):
-        idaapi.refresh_idaview_anyway()
+        syms = []
         for line in bap.syms:
-            line = line.strip()
-            if len(line) == 0:
-                continue
-            addr = int(line, 16)
-            end_addr = idaapi.BADADDR
-            idaapi.add_func(addr, end_addr)
+            heappush(syms, int(line, 16))
+        for i in range(len(syms)):
+            idaapi.add_func(heappop(syms), idaapi.BADADDR)
         idc.Refresh()
+        idaapi.refresh_idaview_anyway()
 
     def init(self):
         """Initialize Plugin."""

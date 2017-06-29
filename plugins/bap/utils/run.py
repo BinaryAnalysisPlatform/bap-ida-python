@@ -23,14 +23,24 @@ class Bap(object):
 
     We will try to keep it clean from IDA
     specifics, so that later we can lift it to the bap-python library
+
+    Attributes:
+
+       DEBUG   print executed commands and keep temporary files
+       args    default arguments, inserted after `bap <input>`
+       plugins a list of available plugins
     """
 
     DEBUG = False
 
+    args = []
+
+    plugins = []
+
     def __init__(self, bap, input_file):
         """Sandbox for the BAP process.
 
-        Each process is sandboxed, so that all intermediated data is
+        Each process is sandboxed, so that all intermediate data are
         stored in a temporary directory.
 
         instance variables:
@@ -50,7 +60,7 @@ class Bap(object):
 
         """
         self.tmpdir = tempfile.mkdtemp(prefix="bap")
-        self.args = [bap, input_file]
+        self.args = [bap, input_file] + self.args
         self.proc = None
         self.fds = []
         self.out = self.tmpfile("out")
@@ -59,6 +69,9 @@ class Bap(object):
         self.env = {'BAP_LOG_DIR': self.tmpdir}
         if self.DEBUG:
             self.env['BAP_DEBUG'] = 'yes'
+        if not Bap.plugins:
+            with os.popen(bap + ' --list-plugins') as out:
+                Bap.plugins = [e.split()[1] for e in out]
 
     def run(self):
         "starts BAP process"

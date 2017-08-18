@@ -27,15 +27,18 @@ patterns = [
     ('taints', 'yellow')
 ]
 
-
 class PropagateTaint(BapIda):
+    ENGINE='primus'
+
     "Propagate taint information using BAP"
     def __init__(self, addr, kind):
         super(PropagateTaint,self).__init__()
+
         self.action = 'taint propagating from {:s}0x{:X}'.format(
             '*' if kind == 'ptr' else '',
             addr)
-        self.passes = ['taint','propagate-taint','map-terms','emit-ida-script']
+        propagate = 'run' if self.ENGINE == 'primus' else 'propagate-taint'
+        self.passes = ['taint', propagate, 'map-terms','emit-ida-script']
         self.script = self.tmpfile('py')
         scheme = self.tmpfile('scm')
         for (pat,color) in patterns:
@@ -50,6 +53,12 @@ class PropagateTaint(BapIda):
             '--emit-ida-script-file', self.script.name
         ]
 
+        if self.ENGINE == 'primus':
+            self.args += [
+                '--primus-propagate-taint-run',
+                '--primus-promiscuous-mode',
+                '--primus-greedy-scheduler'
+            ]
 
 
 class BapTaint(idaapi.plugin_t):

@@ -55,6 +55,8 @@ class PropagateTaint(BapIda):
 
         if self.ENGINE == 'primus':
             self.args += [
+                '--run-entry-points=all-subroutines',
+                '--primus-limit-max-length=100',
                 '--primus-propagate-taint-run',
                 '--primus-promiscuous-mode',
                 '--primus-greedy-scheduler'

@@ -89,7 +89,7 @@ def output_branches(out):
     for addr in addresses():
         succs = Succs(addr)
         if succs.jmps:
-            out.write('{}\n'.format(succs.dumps))
+            out.write('{}\n'.format(succs.dumps()))
 
 
 def set_color(addr, color):
@@ -125,13 +125,13 @@ def prototypes():
     return list(types)
 
 
-def Succs(object):
+class Succs(object):
     def __init__(self, addr):
         self.addr = addr
         self.dests = set(idautils.CodeRefsFrom(addr, True))
         self.jmps = set(idautils.CodeRefsFrom(addr, False))
-        falls = self.succs - self.dests
-        self.fall = falls[0] if falls else None
+        falls = self.dests - self.jmps
+        self.fall = list(falls)[0] if falls else None
 
     def dumps(self):
         return ''.join([

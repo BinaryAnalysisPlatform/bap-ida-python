@@ -1,6 +1,7 @@
 """Loads all possible BAP IDA Python plugins."""
-
-
+import os
+import bap.plugins
+import bap.utils.run
 import idaapi
 
 
@@ -15,24 +16,22 @@ class bap_loader(idaapi.plugin_t):
 
     def init(self):
         """Read directory and load as many plugins as possible."""
-        import os
-        import bap.plugins
-        import bap.utils.run
-        import idaapi
+        self.plugins = []
 
         idaapi.msg("BAP Loader activated\n")
 
         bap.utils.run.check_and_configure_bap()
 
         plugin_path = os.path.dirname(bap.plugins.__file__)
-        idaapi.msg("Loading plugins from {}\n".format(plugin_path))
+        idaapi.msg("BAP> Loading plugins from {}\n".format(plugin_path))
 
         for plugin in sorted(os.listdir(plugin_path)):
             path = os.path.join(plugin_path, plugin)
             if not plugin.endswith('.py') or plugin.startswith('__'):
                 continue  # Skip non-plugins
-            idaapi.load_plugin(path)
-        return idaapi.PLUGIN_SKIP  # The loader will be called whenever needed
+            idc.Message('BAP> Loading {}\n'.format(plugin))
+            self.plugins.append(idaapi.load_plugin(path))
+        return idaapi.PLUGIN_KEEP
 
     def term(self):
         """Ignored."""

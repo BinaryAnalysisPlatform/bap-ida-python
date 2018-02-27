@@ -18,7 +18,6 @@ import idautils
 import idaapi
 import idc
 from bap.utils.run import BapIda
-from bap.utils.abstract_ida_plugins import DoNothing
 
 patterns = [
     ('true', 'gray'),
@@ -27,23 +26,45 @@ patterns = [
     ('taints', 'yellow')
 ]
 
+ENGINE_HISTORY=117342
+
+ask_engine='What engine would you like, primus or legacy?'
+ask_depth='For how many RTL instructions to propagate?'
+
 class PropagateTaint(BapIda):
     ENGINE='primus'
+    DEPTH=4096
+    LOOP_DEPTH=64
 
     "Propagate taint information using BAP"
     def __init__(self, addr, kind):
         super(PropagateTaint,self).__init__()
+        # If a user is not fast enough in providing the answer
+        # IDA Python will popup a modal window that will block
+        # a user from providing the answer.
+        idaapi.disable_script_timeout()
 
-        self.action = 'taint propagating from {:s}0x{:X}'.format(
+        engine = idaapi.askstr(ENGINE_HISTORY, self.ENGINE, ask_engine) \
+                 or self.ENGINE
+        depth = idaapi.asklong(self.DEPTH, ask_depth) \
+                or self.DEPTH
+
+        # don't ask for the loop depth as a user is already annoyed.
+        loop_depth = self.LOOP_DEPTH
+
+        self.action = 'propagating taint from {:s}0x{:X}'.format(
             '*' if kind == 'ptr' else '',
             addr)
-        propagate = 'run' if self.ENGINE == 'primus' else 'propagate-taint'
+        propagate = 'run' if engine == 'primus' else 'propagate-taint'
         self.passes = ['taint', propagate, 'map-terms','emit-ida-script']
         self.script = self.tmpfile('py')
         scheme = self.tmpfile('scm')
+        stdin=self.tmpfile('stdin')
+        stdout=self.tmpfile('stdout')
         for (pat,color) in patterns:
             scheme.write('(({0}) (color {1}))\n'.format(pat,color))
         scheme.close()
+        name = idc.GetFunctionName(addr)
 
         self.args += [
             '--taint-'+kind, '0x{:X}'.format(addr),
@@ -53,14 +74,20 @@ class PropagateTaint(BapIda):
             '--emit-ida-script-file', self.script.name
         ]
 
-        if self.ENGINE == 'primus':
+        if engine == 'primus':
             self.args += [
-                '--run-entry-points=all-subroutines',
-                '--primus-limit-max-length=100',
-                '--primus-propagate-taint-run',
+                '--run-entry-points={}'.format(name),
+                '--primus-limit-max-length={}'.format(depth),
+                '--primus-limit-max-visited={}'.format(loop_depth),
                 '--primus-promiscuous-mode',
-                '--primus-greedy-scheduler'
+                '--primus-greedy-scheduler',
+                '--primus-propagate-taint-from-attributes',
+                '--primus-propagate-taint-to-attributes',
+                '--primus-lisp-channel-redirect=<stdin>:{0},<stdout>:{1}'.format(
+                    stdin.name,
+                    stdout.name)
             ]
+
 
 
 class BapTaint(idaapi.plugin_t):
@@ -139,10 +166,3 @@ class BapTaint(idaapi.plugin_t):
         else:
             idc.Fatal("Invalid ptr_or_reg value passed {}".
                       format(repr(ptr_or_reg)))
-
-class BapTaintStub(DoNothing):
-    pass
-
-
-def PLUGIN_ENTRY():
-    return BapTaintStub()

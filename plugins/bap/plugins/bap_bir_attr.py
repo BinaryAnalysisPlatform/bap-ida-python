@@ -73,7 +73,10 @@ class BapBirAttr(idaapi.plugin_t):
         """
 
         args_msg = "Arguments that will be passed to `bap'"
-
+        # If a user is not fast enough in providing the answer
+        # IDA Python will popup a modal window that will block
+        # a user from providing the answer.
+        idaapi.disable_script_timeout()
         args = idaapi.askstr(ARGS_HISTORY, '--passes=', args_msg)
         if args is None:
             return

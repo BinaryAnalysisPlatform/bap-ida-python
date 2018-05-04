@@ -84,7 +84,7 @@ class Loader(object):
         return self.state
 
     def run(self):
-        for _ in next():
+        for state in self:
             pass
 
 

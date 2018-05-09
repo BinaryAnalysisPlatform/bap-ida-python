@@ -60,7 +60,6 @@ class Loader(object):
 
     def next(self):
         event = self.parser.next()
-        print('Parser event {}'.format(repr(event)))
         if len(event) != 2:
             raise ValueError('Malformed Observation {}'.format(event))
         event, payload = event
@@ -240,12 +239,13 @@ def mems(state, data):
 
 
 @filter(requires='pc')
-def filter_range(state, lo, hi):
+def filter_range(state, lo=0, hi=None):
     """masks events that do not fall into the specified region.
 
     interval bounds are included.
     """
-    return lo <= state['pc'] <= hi
+    pc = state['pc']
+    return lo <= pc and (hi is None or pc <= hi)
 
 
 @filter(requires='machine-id')

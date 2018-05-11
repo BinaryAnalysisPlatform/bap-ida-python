@@ -185,21 +185,48 @@ class TraceFileSelector(QtWidgets.QWidget):
 
 
 class IncidentView(QtWidgets.QWidget):
-    def __init__(self, incidents, locations, parent=None):
+    def __init__(self, parent=None):
         super(IncidentView, self).__init__(parent)
         self.view = QtWidgets.QTreeView()
         self.view.setAllColumnsShowFocus(True)
         self.view.setUniformRowHeights(True)
         box = QtWidgets.QVBoxLayout()
         box.addWidget(self.view)
+        self.load_trace = QtWidgets.QPushButton('&Trace')
+        self.load_trace.setToolTip('Load into the Trace Window')
+        self.load_trace.setEnabled(False)
+        self.view.activated.connect(lambda _: self.update_controls_state())
+        self.load_trace.clicked.connect(self.load_current_trace)
+        box.addWidget(self.load_trace)
         self.setLayout(box)
+        self.model = None
 
     def display(self, incidents, locations):
-        model = IncidentModel(incidents, locations, self)
-        proxy = QSortFilterProxyModel(self)
-        proxy.setSourceModel(model)
-        self.view.setSortingEnabled(True)
-        self.view.setModel(proxy)
+        self.model = IncidentModel(incidents, locations, self)
+        self.view.setModel(self.model)
+
+    def update_controls_state(self):
+        curr = self.view.currentIndex()
+        self.load_trace.setEnabled(curr.isValid() and
+                                   curr.parent().isValid())
+
+    def load_current_trace(self):
+        idx = self.view.currentIndex()
+        if not idx.isValid() or index_level(idx) not in (1, 2):
+            raise ValueError('load_current_trace: invalid index')
+
+        if index_level(idx) == 2:
+            idx = idx.parent()
+
+        incident = self.model.incidents[idx.parent().row()]
+        location = incident.locations[idx.row()]
+        trace = self.model.locations[location]
+
+        for p in trace:
+            self.load_trace_point(p)
+
+    def load_trace_point(self, p):
+        idaapi.dbg_add_tev(1, p.machine, p.addr)
 
 
 class TraceLoaderController(QtWidgets.QWidget):
@@ -303,6 +330,8 @@ class IncidentModel(QAbstractItemModel):
         return self.parents[child.internalId()]
 
     def rowCount(self, parent):
+        if parent.column() > 0:
+            return 0
         level = index_level(parent)
         if level == -1:
             return len(self.incidents)
@@ -316,27 +345,32 @@ class IncidentModel(QAbstractItemModel):
         else:
             return 0
 
-    def columnCount(self, index):
-        return 1
+    def columnCount(self, parent):
+        return 2 if not parent.isValid() or parent.column() == 0 else 0
 
     def data(self, index, role):
         level = index_level(index)
-
         if role == Qt.DisplayRole:
             if level == -1:
                 return QVariant()
             elif level == 0:
                 incident = self.incidents[index.row()]
-                data = '{}#{}'.format(incident.name, index.row())
-                return QVariant(data)
+                if index.column() == 0:
+                    return QVariant(incident.name)
+                else:
+                    return QVariant(str(index.row()))
             elif level == 1:
-                return QVariant('location-{}'.format(index.row()))
+                if index.column() == 0:
+                    return QVariant('location-{}'.format(index.row()))
             elif level == 2:
                 incident = self.incidents[index.parent().parent().row()]
                 location = incident.locations[index.parent().row()]
                 trace = self.locations[location]
                 point = trace[index.row()]
-                return QVariant('{:x}'.format(point.addr))
+                if index.column() == 0:
+                    return QVariant('{:x}'.format(point.addr))
+                else:
+                    return QVariant(int(point.machine))
             else:
                 return QVariant()
         else:
@@ -387,7 +421,7 @@ class BapTraceMain(idaapi.PluginForm):
     def OnCreate(self, form):
         form = self.FormToPyQtWidget(form)
         self.control = TraceLoaderController(form)
-        self.incidents = IncidentView(incidents, locations, form)
+        self.incidents = IncidentView(form)
 
         def display():
             self.incidents.display(incidents, locations)

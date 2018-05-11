@@ -8,11 +8,15 @@ from PyQt5 import QtWidgets
 from PyQt5 import QtGui
 
 from PyQt5.QtCore import (
+    Qt,
     QFile,
     QIODevice,
     QCryptographicHash as QCrypto,
     QRegExp,
     QTimer,
+    QAbstractItemModel,
+    QModelIndex,
+    QVariant,
     pyqtSignal)
 
 
@@ -28,6 +32,21 @@ def tev_call(state, call):
     caller = state['pc']
     callee = idaapi.get_name_ea(0, call[0])
     idaapi.dbg_add_call_tev(state['machine-id'], caller, callee)
+
+
+incidents = []
+locations = {}
+
+
+@trace.handler('incident')
+def incident(state, data):
+    incidents.append(Incident(data[0], [int(x) for x in data[1:]]))
+
+
+@trace.handler('incident-location')
+def incident_location(state, data):
+    id = int(data[0])
+    locations[id] = [parse_point(p) for p in data[1]]
 
 
 # we are using PyQt5 here, because IDAPython relies on a system
@@ -61,6 +80,8 @@ class HandlerSelector(QtWidgets.QGroupBox):
             box.addWidget(btn)
             self.options[name] = btn
         box.addStretch(1)
+        self.setCheckable(True)
+        self.setChecked(True)
         self.setLayout(box)
 
 
@@ -162,13 +183,25 @@ class TraceFileSelector(QtWidgets.QWidget):
         self.setLayout(box)
 
 
-class TraceLoaderController(object):
-    def __init__(self, parent):
+class IncidentView(QtWidgets.QWidget):
+    def __init__(self, incidents, locations, parent=None):
+        super(IncidentView, self).__init__(parent)
+        self.model = IncidentModel(incidents, locations, parent)
+        self.view = QtWidgets.QTreeView()
+        self.view.setModel(self.model)
+        box = QtWidgets.QVBoxLayout()
+        box.addWidget(self.view)
+        self.setLayout(box)
+
+
+class TraceLoaderController(QtWidgets.QWidget):
+    def __init__(self, parent=None):
+        super(TraceLoaderController, self).__init__(parent)
         self.loader = None
-        box = QtWidgets.QVBoxLayout(parent)
-        self.location = TraceFileSelector(parent)
-        self.handlers = HandlerSelector(parent)
-        self.machines = MachineSelector(parent)
+        box = QtWidgets.QVBoxLayout(self)
+        self.location = TraceFileSelector(self)
+        self.handlers = HandlerSelector(self)
+        self.machines = MachineSelector(self)
         box.addWidget(self.location)
         box.addWidget(self.handlers)
         box.addWidget(self.machines)
@@ -196,7 +229,7 @@ class TraceLoaderController(object):
         self.processor.timeout.connect(self.process)
         self.load.clicked.connect(self.processor.start)
         self.cancel.clicked.connect(self.stop)
-        parent.setLayout(box)
+        self.setLayout(box)
 
     def start(self):
         self.cancel.setVisible(True)
@@ -231,12 +264,129 @@ class TraceLoaderController(object):
             self.stop()
 
 
+def index_level(idx):
+    if idx.isValid():
+        return 1 + index_level(idx.parent())
+    else:
+        return -1
+
+
+class IncidentModel(QAbstractItemModel):
+    def __init__(self, incidents, locations, parent=None):
+        super(IncidentModel, self).__init__(parent)
+        self.incidents = incidents
+        self.locations = locations
+        self.parents = {0: QModelIndex()}
+        self.child_ids = 0
+
+    def index(self, row, col, parent):
+        if parent.isValid():
+            self.child_ids += 1
+            index = self.createIndex(row, col, self.child_ids)
+            self.parents[self.child_ids] = parent
+            return index
+        else:
+            return self.createIndex(row, col, 0)
+
+    def parent(self, child):
+        return self.parents[child.internalId()]
+
+    def rowCount(self, parent):
+        level = index_level(parent)
+        if level == -1:
+            return len(self.incidents)
+        elif level == 0:
+            incident = self.incidents[parent.row()]
+            return len(incident.locations)
+        elif level == 1:
+            incident = self.incidents[parent.parent().row()]
+            location = incident.locations[parent.row()]
+            return len(self.locations[location])
+        else:
+            return 0
+
+    def columnCount(self, index):
+        return 1
+
+    def data(self, index, role):
+        level = index_level(index)
+
+        if role == Qt.DisplayRole:
+            if level == -1:
+                return QVariant()
+            elif level == 0:
+                incident = self.incidents[index.row()]
+                data = '{}#{}'.format(incident.name, index.row())
+                return QVariant(data)
+            elif level == 1:
+                return QVariant('location-{}'.format(index.row()))
+            elif level == 2:
+                incident = self.incidents[index.parent().parent().row()]
+                location = incident.locations[index.parent().row()]
+                trace = self.locations[location]
+                point = trace[index.row()]
+                return QVariant('{:x}'.format(point.addr))
+            else:
+                return QVariant()
+        else:
+            return QVariant()
+
+
+class Incident(object):
+    __slots__ = ['name', 'locations']
+
+    def __init__(self, name, locations):
+        self.name = name
+        self.locations = locations
+
+    def __repr__(self):
+        return 'Incident({}, {})'.format(repr(self.name),
+                                         repr(self.locations))
+
+
+class Point(object):
+    __slots__ = ['addr', 'machine']
+
+    def __init__(self, addr, machine=None):
+        self.addr = addr
+        self.machine = machine
+
+    def __str__(self):
+        if self.machine:
+            return '{}:{}'.format(self.machine, self.addr)
+        else:
+            return str(self.addr)
+
+    def __repr__(self):
+        if self.machine:
+            return 'Point({},{})'.format(self.machine, self.addr)
+        else:
+            return 'Point({})'.format(repr(self.addr))
+
+
+def parse_point(data):
+    parts = data.split(':')
+    if len(parts) == 1:
+        return Point(int(data, 16))
+    else:
+        return Point(int(parts[1], 16), int(parts[0]))
+
+
 class BapTraceMain(idaapi.PluginForm):
     def OnCreate(self, form):
-        parent = self.FormToPyQtWidget(form)
-        self.control = TraceLoaderController(parent)
+        form = self.FormToPyQtWidget(form)
+        self.control = TraceLoaderController(form)
+        self.incidents = IncidentView(incidents, locations, form)
+        box = QtWidgets.QHBoxLayout()
+        box.addWidget(self.control)
+        box.addWidget(self.incidents)
+        form.setLayout(box)
+
+
+main = None
 
 
 def bap_trace_test():
+    global main
     main = BapTraceMain()
     main.Show('Primus Observations')

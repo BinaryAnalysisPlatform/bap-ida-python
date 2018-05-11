@@ -17,7 +17,8 @@ from PyQt5.QtCore import (
     QAbstractItemModel,
     QModelIndex,
     QVariant,
-    pyqtSignal)
+    pyqtSignal,
+    QSortFilterProxyModel)
 
 
 @trace.handler('pc-changed', requires=['machine-id', 'pc'])
@@ -186,15 +187,24 @@ class TraceFileSelector(QtWidgets.QWidget):
 class IncidentView(QtWidgets.QWidget):
     def __init__(self, incidents, locations, parent=None):
         super(IncidentView, self).__init__(parent)
-        self.model = IncidentModel(incidents, locations, parent)
         self.view = QtWidgets.QTreeView()
-        self.view.setModel(self.model)
+        self.view.setAllColumnsShowFocus(True)
+        self.view.setUniformRowHeights(True)
         box = QtWidgets.QVBoxLayout()
         box.addWidget(self.view)
         self.setLayout(box)
 
+    def display(self, incidents, locations):
+        model = IncidentModel(incidents, locations, self)
+        proxy = QSortFilterProxyModel(self)
+        proxy.setSourceModel(model)
+        self.view.setSortingEnabled(True)
+        self.view.setModel(proxy)
+
 
 class TraceLoaderController(QtWidgets.QWidget):
+    finished = pyqtSignal()
+
     def __init__(self, parent=None):
         super(TraceLoaderController, self).__init__(parent)
         self.loader = None
@@ -253,6 +263,7 @@ class TraceLoaderController(QtWidgets.QWidget):
         self.cancel.setVisible(False)
         self.load.setVisible(True)
         self.loader = None
+        self.finished.emit()
 
     def process(self):
         if not self.loader:
@@ -377,6 +388,10 @@ class BapTraceMain(idaapi.PluginForm):
         form = self.FormToPyQtWidget(form)
         self.control = TraceLoaderController(form)
         self.incidents = IncidentView(incidents, locations, form)
+
+        def display():
+            self.incidents.display(incidents, locations)
+        self.control.finished.connect(display)
         box = QtWidgets.QHBoxLayout()
         box.addWidget(self.control)
         box.addWidget(self.incidents)

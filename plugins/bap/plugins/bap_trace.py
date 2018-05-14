@@ -21,10 +21,24 @@ from PyQt5.QtCore import (
     QSortFilterProxyModel)
 
 
+def add_insn_to_trace_view(ea, tid=1):
+    idaapi.dbg_add_tev(1, tid, ea)
+
+
 @trace.handler('pc-changed', requires=['machine-id', 'pc'])
 def tev_insn(state, ev):
-    "stores each visted instruction to the IDA Trace Window"
-    idaapi.dbg_add_tev(1, state['machine-id'], state['pc'])
+    "stores each visited instruction to the IDA Trace Window"
+    add_insn_to_trace_view(1, state['pc'], tid=state['machine-id'])
+
+
+@trace.handler('pc-changed', requires=['pc'])
+def tev_insn0(state, ev):
+    """stores each visited instruction to the IDA Trace Window.
+
+    But doesn't set the pid/tid field, and keep it equal to 0
+    (This enables interoperation with the debugger)
+    """
+    add_insn_to_trace_view(state['pc'])
 
 
 @trace.handler('call', requires=['machine-id', 'pc'])
@@ -195,15 +209,34 @@ class IncidentView(QtWidgets.QWidget):
         self.load_trace = QtWidgets.QPushButton('&Trace')
         self.load_trace.setToolTip('Load into the Trace Window')
         self.load_trace.setEnabled(False)
-        self.view.activated.connect(lambda _: self.update_controls_state())
+        for activation_signal in [
+                self.view.activated,
+                self.view.entered,
+                self.view.pressed]:
+            activation_signal.connect(lambda _: self.update_controls_state())
         self.load_trace.clicked.connect(self.load_current_trace)
+        self.view.doubleClicked.connect(self.jump_to_index)
+        self.filter = QtWidgets.QLineEdit()
+        self.filter.textChanged.connect(self.filter_model)
+        box.addWidget(self.filter)
         box.addWidget(self.load_trace)
         self.setLayout(box)
         self.model = None
+        self.proxy = None
 
     def display(self, incidents, locations):
         self.model = IncidentModel(incidents, locations, self)
-        self.view.setModel(self.model)
+        self.proxy = QSortFilterProxyModel(self)
+        self.proxy.setSourceModel(self.model)
+        self.proxy.setFilterRole(self.model.incident_name_role)
+        self.proxy.setFilterRegExp(QRegExp(self.filter.text()))
+        self.proxy.setSortRole(self.model.incident_name_role)
+        self.view.setSortingEnabled(True)
+        self.view.setModel(self.proxy)
+
+    def filter_model(self, txt):
+        if self.proxy:
+            self.proxy.setFilterRegExp(QRegExp(txt))
 
     def update_controls_state(self):
         curr = self.view.currentIndex()
@@ -211,7 +244,7 @@ class IncidentView(QtWidgets.QWidget):
                                    curr.parent().isValid())
 
     def load_current_trace(self):
-        idx = self.view.currentIndex()
+        idx = self.proxy.mapToSource(self.view.currentIndex())
         if not idx.isValid() or index_level(idx) not in (1, 2):
             raise ValueError('load_current_trace: invalid index')
 
@@ -220,13 +253,28 @@ class IncidentView(QtWidgets.QWidget):
 
         incident = self.model.incidents[idx.parent().row()]
         location = incident.locations[idx.row()]
-        trace = self.model.locations[location]
+        backtrace = self.model.locations[location]
 
-        for p in trace:
+        for p in reversed(backtrace):
             self.load_trace_point(p)
 
+    def jump_to_index(self, idx):
+        idx = self.proxy.mapToSource(idx)
+        if index_level(idx) != 2:
+            # don't mess with parents, they are used to create children
+            return
+        grandpa = idx.parent().parent()
+        incident = self.model.incidents[grandpa.row()]
+        location = incident.locations[idx.parent().row()]
+        trace = self.model.locations[location]
+        point = trace[idx.row()]
+        self.show_trace_point(point)
+
     def load_trace_point(self, p):
-        idaapi.dbg_add_tev(1, p.machine, p.addr)
+        add_insn_to_trace_view(p.addr)
+
+    def show_trace_point(self, p):
+        idaapi.jumpto(p.addr)
 
 
 class TraceLoaderController(QtWidgets.QWidget):
@@ -310,6 +358,8 @@ def index_level(idx):
 
 
 class IncidentModel(QAbstractItemModel):
+    incident_name_role = Qt.UserRole
+
     def __init__(self, incidents, locations, parent=None):
         super(IncidentModel, self).__init__(parent)
         self.incidents = incidents
@@ -350,7 +400,7 @@ class IncidentModel(QAbstractItemModel):
 
     def data(self, index, role):
         level = index_level(index)
-        if role == Qt.DisplayRole:
+        if role in (Qt.DisplayRole, self.incident_name_role):
             if level == -1:
                 return QVariant()
             elif level == 0:
@@ -360,15 +410,23 @@ class IncidentModel(QAbstractItemModel):
                 else:
                     return QVariant(str(index.row()))
             elif level == 1:
-                if index.column() == 0:
+                if role == self.incident_name_role:
+                    incident = self.incidents[index.parent().row()]
+                    return QVariant(incident.name)
+                elif role == Qt.DisplayRole and index.column() == 0:
                     return QVariant('location-{}'.format(index.row()))
+                else:
+                    return QVariant()
             elif level == 2:
                 incident = self.incidents[index.parent().parent().row()]
                 location = incident.locations[index.parent().row()]
                 trace = self.locations[location]
                 point = trace[index.row()]
                 if index.column() == 0:
-                    return QVariant('{:x}'.format(point.addr))
+                    if role == self.incident_name_role:
+                        return QVariant(incident.name)
+                    else:
+                        return QVariant('{:x}'.format(point.addr))
                 else:
                     return QVariant(int(point.machine))
             else:

@@ -1,3 +1,5 @@
+# noqa: ignore=F811
+
 import idaapi
 
 import os
@@ -216,10 +218,15 @@ class IncidentView(QtWidgets.QWidget):
             activation_signal.connect(lambda _: self.update_controls_state())
         self.load_trace.clicked.connect(self.load_current_trace)
         self.view.doubleClicked.connect(self.jump_to_index)
+        hbox = QtWidgets.QHBoxLayout()
         self.filter = QtWidgets.QLineEdit()
         self.filter.textChanged.connect(self.filter_model)
-        box.addWidget(self.filter)
-        box.addWidget(self.load_trace)
+        filter_label = QtWidgets.QLabel('&Search')
+        filter_label.setBuddy(self.filter)
+        hbox.addWidget(filter_label)
+        hbox.addWidget(self.filter)
+        hbox.addWidget(self.load_trace)
+        box.addLayout(hbox)
         self.setLayout(box)
         self.model = None
         self.proxy = None
@@ -228,10 +235,8 @@ class IncidentView(QtWidgets.QWidget):
         self.model = IncidentModel(incidents, locations, self)
         self.proxy = QSortFilterProxyModel(self)
         self.proxy.setSourceModel(self.model)
-        self.proxy.setFilterRole(self.model.incident_name_role)
+        self.proxy.setFilterRole(self.model.filter_role)
         self.proxy.setFilterRegExp(QRegExp(self.filter.text()))
-        self.proxy.setSortRole(self.model.incident_name_role)
-        self.view.setSortingEnabled(True)
         self.view.setModel(self.proxy)
 
     def filter_model(self, txt):
@@ -357,8 +362,59 @@ def index_level(idx):
         return -1
 
 
+def index_up(idx, level=0):
+    if level == 0:
+        return idx
+    else:
+        return index_up(idx.parent(), level=level-1)
+
+
+class IncidentIndex(object):
+    def __init__(self, model, index):
+        self.model = model
+        self.index = index
+
+    @property
+    def incidents(self):
+        return self.model.incidents
+
+    @property
+    def level(self):
+        return index_level(self.index)
+
+    @property
+    def column(self):
+        return self.index.column()
+
+    @property
+    def row(self):
+        return self.index.row()
+
+    @property
+    def incident(self):
+        top = index_up(self.index, self.level)
+        return self.incidents[top.row()]
+
+    @property
+    def location(self):
+        if self.level in (1, 2):
+            top = self.index
+            if self.level == 2:
+                top = index_up(self.index, 1)
+            location_id = self.incident.locations[top.row()]
+            return self.model.locations[location_id]
+
+    @property
+    def point(self):
+        if self.level == 2:
+            return self.location[self.index.row()]
+
+
 class IncidentModel(QAbstractItemModel):
-    incident_name_role = Qt.UserRole
+    filter_role = Qt.UserRole
+    sort_role = Qt.UserRole + 1
+
+    handlers = []
 
     def __init__(self, incidents, locations, parent=None):
         super(IncidentModel, self).__init__(parent)
@@ -366,6 +422,22 @@ class IncidentModel(QAbstractItemModel):
         self.locations = locations
         self.parents = {0: QModelIndex()}
         self.child_ids = 0
+
+    def dispatch(self, role, index):
+        for handler in self.handlers:
+            def sat(c, v):
+                if c == 'roles':
+                    return role in v
+                if c == 'level':
+                    return index.level == v
+                if c == 'column':
+                    return index.column == v
+
+            for (c, v) in handler['constraints'].items():
+                if not sat(c, v):
+                    break
+            else:
+                return handler['accept'](index)
 
     def index(self, row, col, parent):
         if parent.isValid():
@@ -380,59 +452,78 @@ class IncidentModel(QAbstractItemModel):
         return self.parents[child.internalId()]
 
     def rowCount(self, parent):
-        if parent.column() > 0:
-            return 0
-        level = index_level(parent)
-        if level == -1:
-            return len(self.incidents)
-        elif level == 0:
-            incident = self.incidents[parent.row()]
-            return len(incident.locations)
-        elif level == 1:
-            incident = self.incidents[parent.parent().row()]
-            location = incident.locations[parent.row()]
-            return len(self.locations[location])
-        else:
-            return 0
+        n = self.dispatch('row-count', IncidentIndex(self, parent))
+        return 0 if n is None else n
 
     def columnCount(self, parent):
         return 2 if not parent.isValid() or parent.column() == 0 else 0
 
     def data(self, index, role):
-        level = index_level(index)
-        if role in (Qt.DisplayRole, self.incident_name_role):
-            if level == -1:
-                return QVariant()
-            elif level == 0:
-                incident = self.incidents[index.row()]
-                if index.column() == 0:
-                    return QVariant(incident.name)
-                else:
-                    return QVariant(str(index.row()))
-            elif level == 1:
-                if role == self.incident_name_role:
-                    incident = self.incidents[index.parent().row()]
-                    return QVariant(incident.name)
-                elif role == Qt.DisplayRole and index.column() == 0:
-                    return QVariant('location-{}'.format(index.row()))
-                else:
-                    return QVariant()
-            elif level == 2:
-                incident = self.incidents[index.parent().parent().row()]
-                location = incident.locations[index.parent().row()]
-                trace = self.locations[location]
-                point = trace[index.row()]
-                if index.column() == 0:
-                    if role == self.incident_name_role:
-                        return QVariant(incident.name)
-                    else:
-                        return QVariant('{:x}'.format(point.addr))
-                else:
-                    return QVariant(int(point.machine))
-            else:
-                return QVariant()
+        role = {
+            Qt.DisplayRole: 'display',
+            self.sort_role: 'sort',
+            self.filter_role: 'filter'
+        }.get(role)
+
+        if role:
+            return QVariant(self.dispatch(role, IncidentIndex(self, index)))
         else:
             return QVariant()
+
+
+def defmethod(*args, **kwargs):
+    def register(method):
+        kwargs['roles'] = args
+        IncidentModel.handlers.append({
+            'name': method.__name__,
+            'constraints': kwargs,
+            'accept': method})
+    return register
+
+
+@defmethod('display', level=2, column=0)
+def display_point(msg):
+    return '{:x}'.format(msg.point.addr)
+
+
+@defmethod('display', level=2, column=1)
+def display_point_machine(msg):
+    return msg.point.machine
+
+
+@defmethod('display', level=1, column=0)
+def display_incident_location(msg):
+    return 'location-{}'.format(msg.row)
+
+
+@defmethod('display', level=0, column=0)
+def display_incident_name(msg):
+    return msg.incident.name
+
+
+@defmethod('display', level=0, column=1)
+def display_incident_id(msg):
+    return msg.row
+
+
+@defmethod('sort', 'filter', column=0)
+def incident_name(msg):
+    return msg.incident.name
+
+
+@defmethod('row-count', level=-1)
+def number_of_incidents(msg):
+    return len(msg.incidents)
+
+
+@defmethod('row-count', level=0, column=0)
+def number_of_locations(msg):
+    return len(msg.incident.locations)
+
+
+@defmethod('row-count', level=1, column=0)
+def backtrace_length(msg):
+    return len(msg.location)
 
 
 class Incident(object):

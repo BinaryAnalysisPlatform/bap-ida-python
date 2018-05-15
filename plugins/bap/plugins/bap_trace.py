@@ -576,9 +576,38 @@ class BapTraceMain(idaapi.PluginForm):
             self.incidents.display(incidents, locations)
         self.control.finished.connect(display)
         box = QtWidgets.QHBoxLayout()
-        box.addWidget(self.control)
-        box.addWidget(self.incidents)
+        split = QtWidgets.QSplitter()
+        split.addWidget(self.control)
+        split.addWidget(self.incidents)
+        box.addWidget(split)
         form.setLayout(box)
+
+
+class BapTracePlugin(idaapi.plugin_t):
+    wanted_name = 'BAP: Load Observations'
+    wanted_hotkey = ''
+    flags = 0
+    comment = 'Load Primus Observations'
+    help = """
+    Loads Primus Observations into IDA for further analysis
+    """
+
+    def __init__(self):
+        self.form = None
+
+    def init(self):
+        return idaapi.PLUGIN_KEEP
+
+    def term(self):
+        pass
+
+    def run(self, arg):
+        self.form = BapTraceMain()
+        self.form.Show('Primus Observations')
+
+
+def PLUGIN_ENTRY():
+    return BapTracePlugin()
 
 
 main = None

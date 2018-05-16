@@ -594,6 +594,7 @@ class BapTracePlugin(idaapi.plugin_t):
 
     def __init__(self):
         self.form = None
+        self.name = 'Primus Observations'
 
     def init(self):
         return idaapi.PLUGIN_KEEP
@@ -602,8 +603,11 @@ class BapTracePlugin(idaapi.plugin_t):
         pass
 
     def run(self, arg):
-        self.form = BapTraceMain()
-        self.form.Show('Primus Observations')
+        if not self.form:
+            self.form = BapTraceMain()
+        return self.form.Show(self.name, options=(
+            self.form.FORM_PERSIST |
+            self.form.FORM_SAVE))
 
 
 def PLUGIN_ENTRY():

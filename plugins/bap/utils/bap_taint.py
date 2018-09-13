@@ -166,11 +166,3 @@ class BapTaint(idaapi.plugin_t):
         else:
             idc.Fatal("Invalid ptr_or_reg value passed {}".
                       format(repr(ptr_or_reg)))
-
-
-class BapTaintStub(DoNothing):
-    pass
-
-
-def PLUGIN_ENTRY():
-    return BapTaintStub()

@@ -30,7 +30,7 @@ def add_insn_to_trace_view(ea, tid=1):
 @trace.handler('pc-changed', requires=['machine-id', 'pc'])
 def tev_insn(state, ev):
     "stores each visited instruction to the IDA Trace Window"
-    add_insn_to_trace_view(1, state['pc'], tid=state['machine-id'])
+    add_insn_to_trace_view(state['pc'], tid=state['machine-id'])
 
 
 @trace.handler('pc-changed', requires=['pc'])

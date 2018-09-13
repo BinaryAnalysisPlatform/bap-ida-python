@@ -86,11 +86,12 @@ def output_types(out):
 @service.provider('brancher')
 def output_branches(out):
     """Dump static successors for each instruction """
+    out.write('(')
     for addr in addresses():
         succs = Succs(addr)
-        if succs.jmps:
+        if succs.jmps or (succs.fall is not None):
             out.write('{}\n'.format(succs.dumps()))
-
+    out.write(')')
 
 def set_color(addr, color):
     idc.SetColor(addr, idc.CIC_ITEM, color)
@@ -137,7 +138,7 @@ class Succs(object):
         return ''.join([
             '({:#x} '.format(self.addr),
             ' ({:#x}) '.format(self.fall) if self.fall else '()',
-            '{})'.format(sexps(self.dests))
+            '{})'.format(sexps(self.jmps))
         ])
 
 

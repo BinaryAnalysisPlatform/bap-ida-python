@@ -8,7 +8,7 @@ import idc
 import idaapi
 
 from bap.utils import hexrays
-from bap.plugins.bap_taint import BapTaint
+from bap.utils.bap_taint import BapTaint
 
 colors = {
     'black':   0x000000,

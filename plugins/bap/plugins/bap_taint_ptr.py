@@ -1,4 +1,4 @@
-from bap.plugins.bap_taint import BapTaint
+from bap.utils.bap_taint import BapTaint
 
 class BapTaintPtr(BapTaint):
     wanted_hotkey = "Ctrl-Shift-A"

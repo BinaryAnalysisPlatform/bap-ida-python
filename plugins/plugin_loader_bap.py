@@ -29,7 +29,7 @@ class bap_loader(idaapi.plugin_t):
             path = os.path.join(plugin_path, plugin)
             if not plugin.endswith('.py') or plugin.startswith('__'):
                 continue  # Skip non-plugins
-            idc.Message('BAP> Loading {}\n'.format(plugin))
+            idaapi.msg('BAP> Loading {}\n'.format(plugin))
             self.plugins.append(idaapi.load_plugin(path))
         return idaapi.PLUGIN_KEEP
 

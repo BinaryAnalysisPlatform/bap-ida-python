@@ -402,7 +402,10 @@ class IncidentIndex(object):
             if self.level == 2:
                 top = index_up(self.index, 1)
             location_id = self.incident.locations[top.row()]
-            return self.model.locations[location_id]
+            if self.model.locations is None:
+                return None
+            else:
+                return self.model.locations.get(location_id)
 
     @property
     def point(self):
@@ -523,7 +526,7 @@ def number_of_locations(msg):
 
 @defmethod('row-count', level=1, column=0)
 def backtrace_length(msg):
-    return len(msg.location)
+    return 0 if msg.location is None else len(msg.location)
 
 
 class Incident(object):

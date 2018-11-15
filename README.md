@@ -45,7 +45,7 @@ disassembly and decompilation views.
 BAP has the ability to tag a lot of possible attributes to
 instructions. These BIR attributes can be tagged automatically as
 comments in IDA, by running arbitrary plugins in BAP. Just hit
-`Ctrl+S`.
+`Shift+S`.
 
 Here's an example of output for Saluki showing that a certain malloc
 is unchecked (pointing to a potential vulnerability).
@@ -68,7 +68,7 @@ to the attribute location by selecting it.
 ### BAP Task Manager and Viewer
 
 Every instance of BAP will have a corresponding view, that will
-accumulate all data written by BAP. The BAP Viewer (`Ctrl-Alt-F5`)
+accumulate all data written by BAP. The BAP Viewer (`Ctrl-Shift-F5`)
 provides an easy way to switch between multiple BAP Views.
 
 Since you can run multiple instances of BAP asynchronously, it is

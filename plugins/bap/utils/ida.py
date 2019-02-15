@@ -1,14 +1,16 @@
 """Utilities that interact with IDA."""
 import idaapi
 import idc
-from idaapi import *
-from idc import *
 import idautils
 
 from ._service import Service
 from ._comment_handler import CommentHandlers
 from ._ctyperewriter import Rewriter
 
+try:
+    from idc import get_segm_name
+except ImportError:
+    from idaapi import get_segm_name
 
 service = Service()
 comment = CommentHandlers()

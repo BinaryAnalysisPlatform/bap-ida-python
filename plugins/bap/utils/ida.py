@@ -1,6 +1,8 @@
 """Utilities that interact with IDA."""
 import idaapi
 import idc
+from idaapi import *
+from idc import *
 import idautils
 
 from ._service import Service
@@ -30,7 +32,7 @@ def output_segments(out):
     out.writelines(('(', info.get_proc_name()[1], ' ', size, ' ('))
     for seg in idautils.Segments():
         out.write("\n({} {} {:d} ({:#x} {:d}))".format(
-            idaapi.get_segm_name(seg),
+            get_segm_name(seg),
             "code" if idaapi.segtype(seg) == idaapi.SEG_CODE else "data",
             idaapi.get_fileregion_offset(seg),
             seg, idaapi.getseg(seg).size()))

@@ -7,6 +7,10 @@ from ._service import Service
 from ._comment_handler import CommentHandlers
 from ._ctyperewriter import Rewriter
 
+try:
+    from idc import get_segm_name
+except ImportError:
+    from idaapi import get_segm_name
 
 service = Service()
 comment = CommentHandlers()
@@ -30,7 +34,7 @@ def output_segments(out):
     out.writelines(('(', info.get_proc_name()[1], ' ', size, ' ('))
     for seg in idautils.Segments():
         out.write("\n({} {} {:d} ({:#x} {:d}))".format(
-            idaapi.get_segm_name(seg),
+            get_segm_name(seg),
             "code" if idaapi.segtype(seg) == idaapi.SEG_CODE else "data",
             idaapi.get_fileregion_offset(seg),
             seg, idaapi.getseg(seg).size()))

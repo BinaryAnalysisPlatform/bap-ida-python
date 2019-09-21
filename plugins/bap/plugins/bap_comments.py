@@ -27,7 +27,7 @@ class Attributes(idaapi.Choose2):
 
 
 class BapComment(idaapi.plugin_t):
-    flags = 0
+    flags = idaapi.PLUGIN_FIX
     help = 'propagate comments to IDA Views'
     comment = ''
     wanted_name = 'BAP: View BAP Attributes'

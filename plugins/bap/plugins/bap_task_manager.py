@@ -42,7 +42,7 @@ class BapSelector(idaapi.Choose2):
 
 class BapTaskManager(idaapi.plugin_t):
     #pylint: disable=no-init
-    flags = idaapi.PLUGIN_DRAW
+    flags =  idaapi.PLUGIN_FIX | idaapi.PLUGIN_DRAW
     wanted_hotkey = "Ctrl-Alt-Shift-F5"
     comment = "bap task manager"
     help = "Open BAP Task Manager"

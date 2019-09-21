@@ -50,7 +50,7 @@ class BapBirAttr(idaapi.plugin_t):
 
     Also supports installation of callbacks using install_callback()
     """
-    flags = idaapi.PLUGIN_DRAW
+    flags =  idaapi.PLUGIN_FIX | idaapi.PLUGIN_DRAW
     comment = "Run BAP "
     help = "Runs BAP and extracts data from the output"
     wanted_name = "BAP: Run"

@@ -589,7 +589,7 @@ class BapTraceMain(idaapi.PluginForm):
 class BapTracePlugin(idaapi.plugin_t):
     wanted_name = 'BAP: Load Observations'
     wanted_hotkey = ''
-    flags = 0
+    flags =  idaapi.PLUGIN_FIX
     comment = 'Load Primus Observations'
     help = """
     Loads Primus Observations into IDA for further analysis

@@ -24,7 +24,6 @@ def test_run_without_args(bapida):
     assert args[0] == backend.path
     assert '--no-ida' in args
     assert '--read-symbols-from' in args
-    assert '--symbolizer=file' in args
 
 
 def test_disable_symbols(bapida):
@@ -38,7 +37,6 @@ def test_disable_symbols(bapida):
     assert args[0] == backend.path
     assert '--no-ida' in args
     assert '--read-symbols-from' not in args
-    assert '--symbolizer=file' not in args
 
 
 def test_event_handlers(bapida):

@@ -91,7 +91,7 @@ class PropagateTaint(BapIda):
 
 
 class BapTaint(idaapi.plugin_t):
-    flags = 0
+    flags = idaapi.PLUGIN_FIX
     comment = "BAP Taint Plugin"
     wanted_name = "BAP: Taint"
 

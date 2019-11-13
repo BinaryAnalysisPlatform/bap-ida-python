@@ -52,7 +52,7 @@ class PseudocodeVisitor(idaapi.plugin_t):
     class.
     """
 
-    flags = idaapi.PLUGIN_PROC
+    flags = idaapi.PLUGIN_FIX | idaapi.PLUGIN_PROC
     wanted_hotkey = ""
 
     def visit_line(self, line):

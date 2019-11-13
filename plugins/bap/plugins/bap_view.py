@@ -62,7 +62,7 @@ class BapView(idaapi.plugin_t):
     Keybindings:
         Ctrl-Shift-F5  : Open/Refresh BAP View
     """
-    flags = idaapi.PLUGIN_DRAW
+    flags = idaapi.PLUGIN_FIX | idaapi.PLUGIN_DRAW
     wanted_hotkey = "Ctrl-Shift-F5"
     comment = "bap output viewer"
     help = "View BAP output"

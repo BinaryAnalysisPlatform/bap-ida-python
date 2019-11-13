@@ -111,6 +111,20 @@ run:
 ```
 opam install bap-ida-python
 ```
+After the installation you'll see few commands that you need to run, e.g.:
+```
+=> In order to install bap-ida-python plugin:
+rm -rf $IDA_PATH/plugins/bap/
+cp $(opam config var prefix)/share/bap-ida-python/plugin_loader_bap.py $IDA_PATH/plugins/
+cp -r $(opam config var prefix)/share/bap-ida-python/bap $IDA_PATH/plugins/
+cp $(opam config var prefix)/share/bap-ida-python/bap.cfg $IDA_PATH/cfg/
+...
+```
+where `IDA_PATH` denotes the root of IDA Pro installation.
+
+You need to run all the commands manually because of the sandboxing enabled in
+modern versions of opam, that doesn't allow to install files outside
+the opam directory.
 
 Debugging
 ---------

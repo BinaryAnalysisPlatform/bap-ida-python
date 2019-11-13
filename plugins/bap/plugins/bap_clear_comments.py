@@ -6,7 +6,7 @@ from bap.utils import ida
 
 
 class BapClearComments(idaapi.plugin_t):
-    flags = idaapi.PLUGIN_DRAW
+    flags = idaapi.PLUGIN_DRAW | idaapi.PLUGIN_FIX
     comment = "removes all BAP comments"
     help = ""
     wanted_name = "BAP: Clear comments"

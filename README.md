@@ -109,7 +109,7 @@ followed all the installation steps in the
 run:
 
 ```
-opam install bap-ida-python
+opam install bap-ida
 ```
 After the installation you'll see few commands that you need to run, e.g.:
 ```

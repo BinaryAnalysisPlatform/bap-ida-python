@@ -1,11 +1,12 @@
 # flake8: noqa
 
-ASKBTN_YES = NotImplemented
-ASKBTN_NO = NotImplemented
-ASKBTN_CANCEL = NotImplemented
-PLUGIN_DRAW = NotImplemented
-PLUGIN_HIDE = NotImplemented
-PLUGIN_KEEP = NotImplemented
+ASKBTN_YES = 0
+ASKBTN_NO = 0
+ASKBTN_CANCEL = 0
+PLUGIN_DRAW = 0
+PLUGIN_HIDE = 0
+PLUGIN_KEEP = 0
+PLUGIN_FIX = 0
 class plugin_t(object): pass
 class text_sink_t(object): pass
 class Choose2(object): pass

@@ -70,8 +70,8 @@ class Bap(object):
         if self.DEBUG:
             self.env['BAP_DEBUG'] = 'yes'
         if not Bap.plugins:
-            with os.popen(bap + ' --list-plugins') as out:
-                Bap.plugins = [e.split()[1] for e in out]
+            with os.popen(bap + ' list plugins') as out:
+                Bap.plugins = [e.split()[0] for e in out]
 
     def run(self):
         "starts BAP process"
@@ -201,8 +201,6 @@ class BapIda(Bap):
             ida.output_symbols(out)
             self.args += [
                 "--read-symbols-from", out.name,
-                "--symbolizer=file",
-                "--rooter=file"
             ]
 
     def _setup_headers(self, bap):
